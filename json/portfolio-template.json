@@ -1,0 +1,31 @@
+  "TICKER": {
+    "name": "Company Name Inc. (TICKER)",
+    "Ticker": "TICKER",
+    "Div": 0.00,
+    "Price": 0.00,
+    "Periodicity": "M",
+    "Qty": 0,
+    "NextExDate": "",
+    "Positions": [
+      {
+        "Direction": "Long",
+        "Size": 0.0,
+        "AvgPrice": 0.00
+      }
+    ],
+    "Trades": [
+      {
+        "On": true,
+        "Strategy": "DCA_Planner",
+        "Qty": 0.0,
+        "Direction": "Long",
+        "DateIn": "",
+        "PriceIn": 0.00,
+        "Commission": 0.00,
+        "DateOut": "",
+        "PriceOut": 0.00
+      }
+    ],
+    "Invested": 0.00,
+    "DivAmnt": 0.00
+  }

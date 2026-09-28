@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DCA Optimization Planner</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f4f6f9; color: #333; margin: 0; padding: 20px; }
+        .container { max-width: 900px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        h2 { margin-top: 0; color: #1a202c; border-bottom: 2px solid #edf2f7; padding-bottom: 10px; }
+        .meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 25px; background: #f8fafc; padding: 15px; border-radius: 8px; }
+        .meta-item label { font-size: 12px; text-transform: uppercase; color: #64748b; font-weight: bold; display: block; margin-bottom: 5px; }
+        .meta-item input { width: 85%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; text-align: left; }
+        th { background-color: #f1f5f9; color: #475569; padding: 12px; font-size: 13px; font-weight: 600; }
+        td { padding: 12px; border-bottom: 1px solid #e2e8f0; font-size: 14px; }
+        input.table-input { width: 90%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; }
+        .btn { background: #2563eb; color: white; border: none; padding: 10px 16px; border-radius: 6px; cursor: pointer; font-weight: 500; margin-top: 15px; }
+        .btn:hover { background: #1d4ed8; }
+        .summary-row { font-weight: bold; background-color: #f8fafc; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>📊 DCA & Yield on Cost Optimizer</h2>
+    
+    <!-- Meta Parameters -->
+    <div class="meta-grid">
+        <div class="meta-item">
+            <label>Ticker</label>
+            <input type="text" id="ticker" value="AGNC">
+        </div>
+        <div class="meta-item">
+            <label>Monthly Div / Share</label>
+            <input type="number" id="monthlyDiv" value="0.12" step="0.01" oninput="calculateDCA()">
+        </div>
+        <div class="meta-item">
+            <label>Annual Div / Share</label>
+            <input type="text" id="annualDiv" readonly style="background:#e2e8f0;">
+        </div>
+    </div>
+
+    <!-- Transaction Ledger Table -->
+    <table id="ledgerTable">
+        <thead>
+            <tr>
+                <th>Qty. of Shares</th>
+                <th>Price per Share (\$)</th>
+                <th>Commission (\$)</th>
+                <th>Total Investment</th>
+                <th>Price After Comm.</th>
+                <th>Dollar Average</th>
+                <th>Monthly Divs Pay</th>
+                <th>Yield on Cost (YOC)</th>
+            </tr>
+        </thead>
+        <tbody id="ledgerBody">
+            <!-- Row 1 -->
+            <tr>
+                <td><input type="number" class="table-input qty" value="100" oninput="calculateDCA()"></td>
+                <td><input type="number" class="table-input price" value="9.68" step="0.01" oninput="calculateDCA()"></td>
+                <td><input type="number" class="table-input comm" value="1.00" step="0.01" oninput="calculateDCA()"></td>
+                <td class="investment">\$0.00</td>
+                <td class="priceAfterComm">\$0.00</td>
+                <td class="dollarAvg">\$0.00</td>
+                <td class="divsPayable">\$0.00</td>
+                <td class="yoc">0.00%</td>
+            </tr>
+            <!-- Row 2 -->
+            <tr>
+                <td><input type="number" class="table-input qty" value="100" oninput="calculateDCA()"></td>
+                <td><input type="number" class="table-input price" value="9.50" step="0.01" oninput="calculateDCA()"></td>
+                <td><input type="number" class="table-input comm" value="1.00" step="0.01" oninput="calculateDCA()"></td>
+                <td class="investment">\$0.00</td>
+                <td class="priceAfterComm">\$0.00</td>
+                <td class="dollarAvg">\$0.00</td>
+                <td class="divsPayable">\$0.00</td>
+                <td class="yoc">0.00%</td>
+            </tr>
+            <!-- Row 3 -->
+            <tr>
+                <td><input type="number" class="table-input qty" value="100" oninput="calculateDCA()"></td>
+                <td><input type="number" class="table-input price" value="9.40" step="0.01" oninput="calculateDCA()"></td>
+                <td><input type="number" class="table-input comm" value="1.00" step="0.01" oninput="calculateDCA()"></td>
+                <td class="investment">\$0.00</td>
+                <td class="priceAfterComm">\$0.00</td>
+                <td class="dollarAvg">\$0.00</td>
+                <td class="divsPayable">\$0.00</td>
+                <td class="yoc">0.00%</td>
+            </tr>
+        </tbody>
+        <tfoot>
+            <tr class="summary-row">
+                <td id="totalQty">0</td>
+                <td>—</td>
+                <td>—</td>
+                <td id="totalInvestment">\$0.00</td>
+                <td>—</td>
+                <td id="finalAvg">\$0.00</td>
+                <td id="totalDivs">\$0.00</td>
+                <td id="finalYoc">0.00%</td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <button class="btn" onclick="addRow()">➕ Add Tranche Row</button>
+</div>
+
+<script>
+function calculateDCA() {
+    const monthlyDiv = parseFloat(document.getElementById('monthlyDiv').value) || 0;
+    const annualDiv = monthlyDiv * 12;
+    document.getElementById('annualDiv').value = `$${annualDiv.toFixed(2)}`;
+
+    const rows = document.querySelectorAll('#ledgerBody tr');
+    let runningShares = 0;
+    let runningInvestment = 0;
+
+    rows.forEach(row => {
+        const qty = parseFloat(row.querySelector('.qty').value) || 0;
+        const price = parseFloat(row.querySelector('.price').value) || 0;
+        const comm = parseFloat(row.querySelector('.comm').value) || 0;
+
+        const investment = (qty * price) + comm;
+        const priceAfterComm = qty > 0 ? investment / qty : 0;
+
+        runningShares += qty;
+        runningInvestment += investment;
+
+        const currentAvg = runningShares > 0 ? runningInvestment / runningShares : 0;
+        const currentMonthlyDivs = runningShares * monthlyDiv;
+        const currentYoc = currentAvg > 0 ? (annualDiv / currentAvg) * 100 : 0;
+
+        // Update current row cells
+        row.querySelector('.investment').innerText = `$${investment.toFixed(2)}`;
+        row.querySelector('.priceAfterComm').innerText = qty > 0 ? `$${priceAfterComm.toFixed(2)}` : '—';
+        row.querySelector('.dollarAvg').innerText = runningShares > 0 ? `$${currentAvg.toFixed(2)}` : '—';
+        row.querySelector('.divsPayable').innerText = `$${currentMonthlyDivs.toFixed(2)}`;
+        row.querySelector('.yoc').innerText = currentAvg > 0 ? `${currentYoc.toFixed(2)}%` : '0.00%';
+    });
+
+    // Update bottom aggregate footer summary
+    const finalAvg = runningShares > 0 ? runningInvestment / runningShares : 0;
+    document.getElementById('totalQty').innerText = runningShares;
+    document.getElementById('totalInvestment').innerText = `$${runningInvestment.toFixed(2)}`;
+    document.getElementById('finalAvg').innerText = `$${finalAvg.toFixed(2)}`;
+    document.getElementById('totalDivs').innerText = `$${(runningShares * monthlyDiv).toFixed(2)}`;
+    document.getElementById('finalYoc').innerText = finalAvg > 0 ? `${(annualDiv / finalAvg * 100).toFixed(2)}%` : '0.00%';
+}
+
+function addRow() {
+    const tbody = document.getElementById('ledgerBody');
+    const newRow = document.createElement('tr');
+    newRow.innerHTML = `
+        <td><input type="number" class="table-input qty" value="0" oninput="calculateDCA()"></td>
+        <td><input type="number" class="table-input price" value="0.00" step="0.01" oninput="calculateDCA()"></td>
+        <td><input type="number" class="table-input comm" value="0.00" step="0.01" oninput="calculateDCA()"></td>
+        <td class="investment">$0.00</td>
+        <td class="priceAfterComm">—</td>
+        <td class="dollarAvg">—</td>
+        <td class="divsPayable">$0.00</td>
+        <td class="yoc">0.00%</td>
+    `;
+    tbody.appendChild(newRow);
+    calculateDCA();
+}
+
+// Initial build calculation run
+calculateDCA();
+</script>
+
+</body>
+</html>
+

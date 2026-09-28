@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DCA Asset Portfolio Manager</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f4f6f9; color: #333; margin: 0; padding: 20px; }
+        .container { max-width: 1100px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        h2 { margin-top: 0; color: #1a202c; border-bottom: 2px solid #edf2f7; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center;}
+        .io-buttons { display: flex; gap: 10px; align-items: center; }
+        .meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 15px; margin-bottom: 25px; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; }
+        .meta-item label { font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: bold; display: block; margin-bottom: 5px; }
+        .meta-item input, .meta-item select { width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; box-sizing: border-box; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; text-align: left; }
+        th { background-color: #f1f5f9; color: #475569; padding: 12px; font-size: 13px; font-weight: 600; }
+        td { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 14px; }
+        input.table-input { width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box; }
+        .btn { background: #2563eb; color: white; border: none; padding: 10px 16px; border-radius: 6px; cursor: pointer; font-weight: 500; margin-top: 15px; }
+        .btn:hover { background: #1d4ed8; }
+        .btn-io { background: #0f172a; font-size: 13px; padding: 8px 14px; margin-top: 0;}
+        .btn-io:hover { background: #1e293b; }
+        .btn-save { background: #16a34a; }
+        .btn-save:hover { background: #15803d; }
+        .summary-row { font-weight: bold; background-color: #f8fafc; }
+        .status-msg { font-size: 13px; color: #16a34a; font-weight: 500; margin-left: 10px; display: inline-block; }
+        #hiddenFileInput { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>
+        <span>📊 Dollar Cost Average Planner</span>
+        <div class="io-buttons">
+            <input type="file" id="hiddenFileInput" accept=".json" onchange="handleFileUpload(event)">
+            <button class="btn btn-io" onclick="document.getElementById('hiddenFileInput').click()">📂 Open JSON File</button>
+            <button class="btn btn-io btn-save" id="saveBtn" onclick="exportJSONFile()">💾 Export JSON File</button>
+        </div>
+    </h2>
+    
+    <!-- Input Metadata Controls -->
+    <div class="meta-grid">
+        <div class="meta-item">
+            <label>Select Asset</label>
+            <select id="assetDropdown" onchange="switchAsset()">
+                <option value="">-- Drop JSON File Above --</option>
+            </select>
+        </div>
+        <div class="meta-item">
+            <label>Or Add New Ticker</label>
+            <input type="text" id="newTickerInput" placeholder="e.g., AAPL">
+        </div>
+        <div class="meta-item" style="display: flex; align-items: flex-end;">
+            <button class="btn" style="margin-top:0; width:100%; padding:8px;" onclick="addNewTicker()">➕ Add</button>
+        </div>
+        <div class="meta-item">
+            <label>Div Payout Rate ($)</label>
+            <input type="number" id="divInput" value="0.00" step="0.001" oninput="updateMetaAndCalc()">
+        </div>
+        <div class="meta-item">
+            <label>Periodicity</label>
+            <select id="periodInput" onchange="updateMetaAndCalc()">
+                <option value="M">Monthly (M)</option>
+                <option value="Q">Quarterly (Q)</option>
+                <option value="S">Semi-Annual (S)</option>
+                <option value="A">Annual (A)</option>
+            </select>
+        </div>
+        <div class="meta-item">
+            <label>Annualized Dividend</label>
+            <input type="text" id="annualDiv" readonly style="background:#e2e8f0;">
+        </div>
+    </div>
+
+    <!-- Transaction Ledger Table -->
+    <table id="ledgerTable">
+        <thead>
+            <tr>
+                <th style="width: 60px;">Active?</th>
+                <th>Qty. of Shares</th>
+                <th>Price per Share ($)</th>
+                <th>Commission ($)</th>
+                <th>Total Investment</th>
+                <th>Price After Comm.</th>
+                <th>Dollar Average</th>
+                <th>Payable Amount</th>
+                <th>YOC</th>
+            </tr>
+        </thead>
+        <tbody id="ledgerBody">
+            <!-- Programmatically built up by app.js -->
+        </tbody>
+        <tfoot>
+            <tr class="summary-row">
+                <td>Total</td>
+                <td id="totalQty">0</td>
+                <td>—</td>
+                <td>—</td>
+                <td id="totalInvestment">$0.00</td>
+                <td>—</td>
+                <td id="finalAvg">$0.00</td>
+                <td id="finalPayable">$0.00</td>
+                <td id="finalYoc">0.00%</td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <button class="btn" onclick="addTrancheRow()">➕ Add Tranche Row</button>
+    <span id="statusMessage" class="status-msg"></span>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

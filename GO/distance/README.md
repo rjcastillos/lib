@@ -16,7 +16,7 @@ distance/
 ├── go.sum              # (not shown, auto-generated)
 ├── build.sh            # Build script
 └── distance            # Compiled binary
-```
+
 
 ## Architecture Overview
 
@@ -26,10 +26,10 @@ The project is structured to support two usage patterns:
 
 #### 1. Command-Line Interface (CLI)
 Run the compiled executable directly:
-```bash
+bash
 ./distance 27 50              # Output in JSON format (default)
 ./distance -L 27 50           # Output in legacy text format
-```
+
 
 **Flags:**
 - `-L` : Output in legacy text format (default is JSON)
@@ -40,12 +40,12 @@ Run the compiled executable directly:
 
 #### 2. Library Package
 Import and use in other Go programs:
-```go
+go
 import "distance/calc"
 
 result := calc.Calculate(27, 50)
 fmt.Printf("Distance: %.2f%%\n", result.Percentage)
-```
+
 
 ## API Reference
 
@@ -72,20 +72,20 @@ Returns the result in legacy text format.
 ## Building
 
 ### Using the build script:
-```bash
+bash
 chmod +x build.sh
 ./build.sh
-```
+
 
 ### Using Go directly:
-```bash
+bash
 go build -o distance .
-```
+
 
 ## Usage Examples
 
 ### As CLI Tool
-```bash
+bash
 # Basic usage - outputs JSON
 $ ./distance 100 150
 {
@@ -98,7 +98,7 @@ $ ./distance 100 150
 $ ./distance -L 100 150
 read line: 100.00 150.00
 result: 50.00%
-```
+
 
 ### As Library Package
 See `example_consumer.go` for complete examples of:
