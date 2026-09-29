@@ -36,6 +36,7 @@
             <input type="file" id="hiddenFileInput" accept=".json" onchange="handleFileUpload(event)">
             <button class="btn btn-io" onclick="document.getElementById('hiddenFileInput').click()">📂 Open JSON File</button>
             <button class="btn btn-io btn-save" id="saveBtn" onclick="exportJSONFile()">💾 Export JSON File</button>
+            <a class="btn btn-io" href="positions.html">Positions</a>
         </div>
     </h2>
     
@@ -48,8 +49,8 @@
             </select>
         </div>
         <div class="meta-item">
-            <label>Or Add New Ticker</label>
-            <input type="text" id="newTickerInput" placeholder="e.g., AAPL">
+            <label for="newTickerInput">New Planner Ticker</label>
+            <input type="text" id="newTickerInput" placeholder="e.g., AAPL (creates .AAPL)">
         </div>
         <div class="meta-item" style="display: flex; align-items: flex-end;">
             <button class="btn" style="margin-top:0; width:100%; padding:8px;" onclick="addNewTicker()">➕ Add</button>
@@ -77,7 +78,8 @@
     <table id="ledgerTable">
         <thead>
             <tr>
-                <th style="width: 60px;">Active?</th>
+                <th>Row</th>
+                <th style="width: 60px;">Include?</th>
                 <th>Qty. of Shares</th>
                 <th>Price per Share ($)</th>
                 <th>Commission ($)</th>
@@ -93,6 +95,7 @@
         </tbody>
         <tfoot>
             <tr class="summary-row">
+                <td>—</td>
                 <td>Total</td>
                 <td id="totalQty">0</td>
                 <td>—</td>
@@ -106,7 +109,7 @@
         </tfoot>
     </table>
 
-    <button class="btn" onclick="addTrancheRow()">➕ Add Tranche Row</button>
+    <button class="btn" onclick="addTrancheRow()">➕ Add future / planner row</button>
     <span id="statusMessage" class="status-msg"></span>
 </div>
 

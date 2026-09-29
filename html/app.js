@@ -1,252 +1,292 @@
 let portfolioData = {};
 let currentTicker = "";
+let renderedTicker = "";
+const periodMultiplier = { M: 12, Q: 4, S: 2, A: 1 };
 
-const periodMultiplier = { "M": 12, "Q": 4, "S": 2, "A": 1 };
+function isPlannerTicker(ticker) {
+    return ticker.startsWith(".");
+}
+
+function validatePortfolio(data) {
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
+        throw new Error("Portfolio JSON must be an object keyed by ticker.");
+    }
+    for (const [ticker, asset] of Object.entries(data)) {
+        if (!asset || typeof asset !== "object" || Array.isArray(asset)) {
+            throw new Error(`${ticker} must contain an asset object.`);
+        }
+        if (asset.Trades !== undefined && !Array.isArray(asset.Trades)) {
+            throw new Error(`${ticker}.Trades must be an array.`);
+        }
+        for (const [index, trade] of (asset.Trades || []).entries()) {
+            if (!trade || typeof trade !== "object" || Array.isArray(trade)) {
+                throw new Error(`${ticker}.Trades[${index}] must be an object.`);
+            }
+            if (trade.On !== undefined && typeof trade.On !== "boolean") {
+                throw new Error(`${ticker}.Trades[${index}].On must be a boolean.`);
+            }
+            for (const field of ["Qty", "PriceIn", "Commission"]) {
+                if (trade[field] !== undefined && trade[field] !== "" && !Number.isFinite(Number(trade[field]))) {
+                    throw new Error(`${ticker}.Trades[${index}].${field} must be numeric.`);
+                }
+            }
+        }
+    }
+}
 
 function handleFileUpload(event) {
-    const file = event.target.files[0]; // Fixed file reference handler index
+    const file = event.target.files?.[0];
     if (!file) return;
-
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = () => {
         try {
-            portfolioData = JSON.parse(e.target.result);
-            showStatus("File loaded successfully into web app cache.");
+            const nextPortfolio = JSON.parse(reader.result);
+            validatePortfolio(nextPortfolio);
+            portfolioData = nextPortfolio;
+            currentTicker = "";
+            renderedTicker = "";
             populateDropdown();
-        } catch (err) {
-            alert("Error parsing file contents. Please verify that it is valid JSON.");
+            showStatus("Portfolio loaded. Changes remain in this page until export.");
+        } catch (error) {
+            showStatus(`Portfolio not loaded: ${error.message}`, true);
+        } finally {
+            event.target.value = "";
         }
     };
+    reader.onerror = () => showStatus("Could not read the selected file.", true);
     reader.readAsText(file);
 }
 
 function exportJSONFile() {
     saveCurrentViewToData();
-    
     if (Object.keys(portfolioData).length === 0) {
-        alert("There is no active data profile workspace to download.");
+        showStatus("Load or create a portfolio before exporting.", true);
         return;
     }
-
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(portfolioData, null, 2));
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", "portfolio.json");
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
-    showStatus("JSON downloaded! Replace your local working copy with this file.");
+    const blob = new Blob([JSON.stringify(portfolioData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "portfolio.json";
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showStatus("Portfolio exported. Replace your working JSON with the downloaded copy.");
 }
 
-function showStatus(msg) {
-    const el = document.getElementById('statusMessage');
-    el.innerText = msg;
-    setTimeout(() => el.innerText = "", 5000);
+let statusTimer;
+function showStatus(message, isError = false) {
+    const status = document.getElementById("statusMessage");
+    status.textContent = message;
+    status.dataset.kind = isError ? "error" : "success";
+    clearTimeout(statusTimer);
+    statusTimer = setTimeout(() => {
+        status.textContent = "";
+        status.dataset.kind = "";
+    }, 6000);
 }
 
 function populateDropdown() {
-    const dropdown = document.getElementById('assetDropdown');
-    dropdown.innerHTML = "";
-    
-    const keys = Object.keys(portfolioData);
-    if(keys.length === 0) {
-        dropdown.innerHTML = '<option value="">-- No Assets Found --</option>';
+    const dropdown = document.getElementById("assetDropdown");
+    dropdown.replaceChildren();
+    const keys = Object.keys(portfolioData).sort();
+    if (keys.length === 0) {
+        dropdown.add(new Option("No assets found", ""));
+        currentTicker = "";
+        document.getElementById("ledgerBody").replaceChildren();
+        calculateDCA();
         return;
     }
-    
-    keys.forEach(key => {
-        const option = document.createElement('option');
-        option.value = key;
-        option.innerText = portfolioData[key].name || key;
-        dropdown.appendChild(option);
-    });
-    
-    // FIX: Extracted correct first string variable element key index element instead of array instance
-    dropdown.value = keys[0];
+    keys.forEach(key => dropdown.add(new Option(portfolioData[key].name || key, key)));
+    if (!keys.includes(currentTicker)) currentTicker = keys[0];
+    dropdown.value = currentTicker;
     switchAsset();
 }
 
 function addNewTicker() {
-    const rawInput = document.getElementById('newTickerInput').value.toUpperCase().trim();
-    if (!rawInput) return;
-    
-    if (portfolioData[rawInput]) {
-        alert("Asset node already exists in memory structure.");
-        document.getElementById('assetDropdown').value = rawInput;
-        switchAsset();
+    const rawInput = document.getElementById("newTickerInput").value.trim().toUpperCase();
+    const symbol = rawInput.replace(/^\.+/, "");
+    if (!symbol) {
+        showStatus("Enter a ticker symbol for the DCA planner.", true);
         return;
     }
-    
-    portfolioData[rawInput] = {
-        "name": `${rawInput} Corporation`,
-        "Ticker": rawInput,
-        "Div": 0.0,
-        "Price": 0.0,
-        "Periodicity": "M",
-        "Qty": 0,
-        "NextExDate": "",
-        "Positions": [],
-        "Trades": []
-    };
-    
-    document.getElementById('newTickerInput').value = "";
+    const plannerTicker = `.${symbol}`;
+    if (!portfolioData[plannerTicker]) {
+        portfolioData[plannerTicker] = {
+            name: `${symbol} DCA Plan`,
+            Ticker: plannerTicker,
+            Div: 0,
+            Price: 0,
+            Periodicity: "M",
+            Qty: 0,
+            NextExDate: "",
+            Positions: [{ Direction: "Long", Size: 0, AvgPrice: 0 }],
+            Trades: [],
+            Invested: 0,
+            DivAmnt: 0
+        };
+    }
+    document.getElementById("newTickerInput").value = "";
     populateDropdown();
-    document.getElementById('assetDropdown').value = rawInput;
+    document.getElementById("assetDropdown").value = plannerTicker;
     switchAsset();
+    showStatus(`Planner ticker ${plannerTicker} is ready. Export to save it.`);
 }
 
 function switchAsset() {
-    // Save current state of old asset if switching away
-    if (currentTicker && portfolioData[currentTicker]) {
-        saveCurrentViewToData();
-    }
-
-    currentTicker = document.getElementById('assetDropdown').value;
-    if (!currentTicker || !portfolioData[currentTicker]) return;
-
+    if (renderedTicker && portfolioData[renderedTicker]) saveCurrentViewToData(renderedTicker);
+    currentTicker = document.getElementById("assetDropdown").value;
+    renderedTicker = currentTicker;
+    const tbody = document.getElementById("ledgerBody");
+    tbody.replaceChildren();
     const asset = portfolioData[currentTicker];
-    
-    document.getElementById('divInput').value = asset.Div || 0;
-    document.getElementById('periodInput').value = asset.Periodicity || "M";
-    
-    const tbody = document.getElementById('ledgerBody');
-    tbody.innerHTML = "";
-    
-    if (asset.Trades && asset.Trades.length > 0) {
-        asset.Trades.forEach(trade => {
-            const qtyVal = parseFloat(trade.Qty) || 0;
-            const priceVal = parseFloat(trade.PriceIn) || 0;
-            const commVal = parseFloat(trade.Commission) || 0;
-            // Handle logical checkbox activation strictly
-            const activeVal = trade.On !== undefined ? trade.On : true;
-            addTrancheRow(activeVal, qtyVal, priceVal, commVal);
-        });
-    } else {
-        addTrancheRow(true, 0, 0, 0);
+    if (!asset) {
+        calculateDCA();
+        return;
     }
-    
+
+    document.getElementById("divInput").value = Number(asset.Div) || 0;
+    document.getElementById("periodInput").value = asset.Periodicity || "M";
+    const trades = asset.Trades || [];
+    if (isPlannerTicker(currentTicker)) {
+        trades.forEach((trade, index) => {
+            if (trade.Strategy !== "DCA_Planner") return;
+            addTrancheRow(trade.On === true, Number(trade.Qty) || 0, Number(trade.PriceIn) || 0,
+                Number(trade.Commission) || 0, "planner", index);
+        });
+        if (tbody.children.length === 0) addTrancheRow(true, 0, 0, 0, "planner");
+    } else {
+        trades.forEach(trade => {
+            if (trade.On !== true || trade.Strategy === "DCA_Planner") return;
+            addTrancheRow(true, Number(trade.Qty) || 0, Number(trade.PriceIn) || 0,
+                Number(trade.Commission) || 0, "position");
+        });
+        if (trades.some(trade => trade.Strategy === "DCA_Planner")) {
+            showStatus(`${currentTicker} has legacy DCA_Planner rows. They are hidden here; use a dot-prefixed planner ticker.`, true);
+        }
+    }
     calculateDCA();
 }
 
-function addTrancheRow(active = true, qty = 0, price = 0, comm = 0) {
-    const tbody = document.getElementById('ledgerBody');
-    const tr = document.createElement('tr');
-    
+function addTrancheRow(active, qty = 0, price = 0, comm = 0, kind, tradeIndex = -1) {
+    const tbody = document.getElementById("ledgerBody");
+    const tr = document.createElement("tr");
+    const rowKind = kind || (isPlannerTicker(currentTicker) ? "planner" : "planned");
+    const included = active ?? rowKind !== "planned";
+    tr.dataset.rowKind = rowKind;
+    tr.dataset.tradeIndex = String(tradeIndex);
+    const readOnly = rowKind === "position";
+    const kindLabel = rowKind === "position" ? "Open position" : rowKind === "planner" ? "Planner row" : "Future only";
     tr.innerHTML = `
-        <td><input type="checkbox" class="table-input row-on" ${active ? 'checked' : ''} onchange="calculateDCA()"></td>
-        <td><input type="number" class="table-input row-qty" value="${qty}" oninput="calculateDCA()"></td>
-        <td><input type="number" class="table-input row-price" value="${price}" step="0.01" oninput="calculateDCA()"></td>
-        <td><input type="number" class="table-input row-comm" value="${comm}" step="0.01" oninput="calculateDCA()"></td>
+        <td>${kindLabel}</td>
+        <td><input type="checkbox" class="table-input row-on" ${included ? "checked" : ""} ${readOnly ? "disabled" : ""} aria-label="Include this row in DCA calculations"></td>
+        <td><input type="number" class="table-input row-qty" min="0" step="any" value="${qty}" ${readOnly ? "disabled" : ""}></td>
+        <td><input type="number" class="table-input row-price" min="0" step="any" value="${price}" ${readOnly ? "disabled" : ""}></td>
+        <td><input type="number" class="table-input row-comm" min="0" step="0.01" value="${comm}" ${readOnly ? "disabled" : ""}></td>
         <td class="investment">$0.00</td>
         <td class="priceAfterComm">—</td>
         <td class="dollarAvg">—</td>
         <td class="payableAmount">$0.00</td>
-        <td class="yoc">0.00%</td>
-    `;
+        <td class="yoc">0.00%</td>`;
+    tr.querySelectorAll("input").forEach(input => {
+        input.addEventListener("input", calculateDCA);
+        input.addEventListener("change", calculateDCA);
+    });
     tbody.appendChild(tr);
     calculateDCA();
 }
 
 function updateMetaAndCalc() {
     if (!currentTicker || !portfolioData[currentTicker]) return;
-    portfolioData[currentTicker].Div = parseFloat(document.getElementById('divInput').value) || 0;
-    portfolioData[currentTicker].Periodicity = document.getElementById('periodInput').value;
+    const dividend = Number(document.getElementById("divInput").value);
+    if (!Number.isFinite(dividend) || dividend < 0) {
+        showStatus("Dividend per payout cycle must be a nonnegative number.", true);
+        return;
+    }
+    portfolioData[currentTicker].Div = dividend;
+    portfolioData[currentTicker].Periodicity = document.getElementById("periodInput").value;
     calculateDCA();
 }
 
-function saveCurrentViewToData() {
-    if (!currentTicker || !portfolioData[currentTicker]) return;
-    
-    const rows = document.querySelectorAll('#ledgerBody tr');
-    const tradesArray = [];
-    let totalShares = 0;
-    let totalInvested = 0;
-    
-    rows.forEach(row => {
-        const isOn = row.querySelector('.row-on').checked;
-        const qty = parseFloat(row.querySelector('.row-qty').value) || 0;
-        const price = parseFloat(row.querySelector('.row-price').value) || 0;
-        const comm = parseFloat(row.querySelector('.row-comm').value) || 0;
-        const totalCost = (qty * price) + comm;
+function saveCurrentViewToData(ticker = currentTicker) {
+    if (!ticker || !portfolioData[ticker]) return;
+    const asset = portfolioData[ticker];
+    const rows = [...document.querySelectorAll("#ledgerBody tr")];
+    const activeRows = rows.filter(row => row.querySelector(".row-on").checked);
+    const totalShares = activeRows.reduce((sum, row) => sum + (Number(row.querySelector(".row-qty").value) || 0), 0);
+    const totalInvested = activeRows.reduce((sum, row) => sum
+        + (Number(row.querySelector(".row-qty").value) || 0) * (Number(row.querySelector(".row-price").value) || 0)
+        + (Number(row.querySelector(".row-comm").value) || 0), 0);
 
-        if (isOn) {
-            totalShares += qty;
-            totalInvested += totalCost;
-        }
-
-        tradesArray.push({
-            On: isOn,
-            Strategy: "DCA_Planner",
-            Qty: qty,
-            Direction: "Long",
-            DateIn: new Date().toISOString().split('T')[0],
-            PriceIn: price,
-            Commission: comm,
-            DateOut: "",
-            PriceOut: 0
-        });
-    });
-    
-    // Sync calculations inside JSON schema mirrors
-    portfolioData[currentTicker].Trades = tradesArray;
-    portfolioData[currentTicker].Qty = totalShares;
-    portfolioData[currentTicker].Invested = parseFloat(totalInvested.toFixed(2));
-    portfolioData[currentTicker].DivAmnt = parseFloat((totalShares * (portfolioData[currentTicker].Div || 0)).toFixed(2));
-    
-    if (portfolioData[currentTicker].Positions && portfolioData[currentTicker].Positions[0]) {
-        portfolioData[currentTicker].Positions[0].Size = totalShares;
-        portfolioData[currentTicker].Positions[0].AvgPrice = totalShares > 0 ? parseFloat((totalInvested / totalShares).toFixed(4)) : 0;
+    if (!isPlannerTicker(ticker)) {
+        asset.DivAmnt = (Number(asset.Qty) || 0) * (Number(asset.Div) || 0);
+        return;
     }
+
+    const originalTrades = asset.Trades || [];
+    const updatesByIndex = new Map();
+    const addedTrades = [];
+    rows.filter(row => row.dataset.rowKind === "planner").forEach(row => {
+        const index = Number(row.dataset.tradeIndex);
+        const original = originalTrades[index] || {};
+        const trade = {
+            ...original,
+            On: row.querySelector(".row-on").checked,
+            Strategy: "DCA_Planner",
+            Qty: Number(row.querySelector(".row-qty").value) || 0,
+            Direction: original.Direction || "Long",
+            DateIn: original.DateIn || new Date().toISOString().slice(0, 10),
+            PriceIn: Number(row.querySelector(".row-price").value) || 0,
+            Commission: Number(row.querySelector(".row-comm").value) || 0,
+            DateOut: original.DateOut || "",
+            PriceOut: Number(original.PriceOut) || 0,
+            CommissionOut: Number(original.CommissionOut) || 0
+        };
+        if (index >= 0) updatesByIndex.set(index, trade);
+        else addedTrades.push(trade);
+    });
+    asset.Trades = originalTrades.map((trade, index) => updatesByIndex.get(index) || trade).concat(addedTrades);
+    asset.Qty = totalShares;
+    asset.Invested = totalInvested;
+    asset.DivAmnt = totalShares * (Number(asset.Div) || 0);
+    const position = asset.Positions?.[0] || { Direction: "Long", Size: 0, AvgPrice: 0 };
+    position.Size = totalShares;
+    position.AvgPrice = totalShares > 0 ? totalInvested / totalShares : 0;
+    asset.Positions = [position];
 }
 
 function calculateDCA() {
-    const divValue = parseFloat(document.getElementById('divInput').value) || 0;
-    const period = document.getElementById('periodInput').value || "M";
-    const multiplier = periodMultiplier[period] || 12;
-    const annualDiv = divValue * multiplier;
-    
-    document.getElementById('annualDiv').value = `$${annualDiv.toFixed(2)}`;
-
-    const rows = document.querySelectorAll('#ledgerBody tr');
+    const dividendInput = Number(document.getElementById("divInput").value);
+    const divValue = Number.isFinite(dividendInput) && dividendInput >= 0 ? dividendInput : 0;
+    const period = document.getElementById("periodInput").value || "M";
+    const annualDiv = divValue * (periodMultiplier[period] || 12);
+    document.getElementById("annualDiv").value = `$${annualDiv.toFixed(2)}`;
     let runningShares = 0;
     let runningInvestment = 0;
 
-    rows.forEach(row => {
-        const isOn = row.querySelector('.row-on').checked;
-        const qty = parseFloat(row.querySelector('.row-qty').value) || 0;
-        const price = parseFloat(row.querySelector('.row-price').value) || 0;
-        const comm = parseFloat(row.querySelector('.row-comm').value) || 0;
-
-        const investment = (qty * price) + comm;
-        const priceAfterComm = qty > 0 ? investment / qty : 0;
-
-        if (isOn) {
+    document.querySelectorAll("#ledgerBody tr").forEach(row => {
+        const included = row.querySelector(".row-on").checked;
+        const qty = Number(row.querySelector(".row-qty").value) || 0;
+        const price = Number(row.querySelector(".row-price").value) || 0;
+        const commission = Number(row.querySelector(".row-comm").value) || 0;
+        const investment = qty * price + commission;
+        if (included) {
             runningShares += qty;
             runningInvestment += investment;
         }
-
-        const currentAvg = runningShares > 0 ? runningInvestment / runningShares : 0;
-        const currentPayable = runningShares * divValue;
-        const currentYoc = currentAvg > 0 ? (annualDiv / currentAvg) * 100 : 0;
-
-        row.querySelector('.investment').innerText = `$${investment.toFixed(2)}`;
-        row.querySelector('.priceAfterComm').innerText = qty > 0 ? `$${priceAfterComm.toFixed(2)}` : '—';
-        
-        if (isOn && runningShares > 0) {
-            row.querySelector('.dollarAvg').innerText = `$${currentAvg.toFixed(2)}`;
-            row.querySelector('.payableAmount').innerText = `$${currentPayable.toFixed(2)}`;
-            row.querySelector('.yoc').innerText = `${currentYoc.toFixed(2)}%`;
-        } else {
-            row.querySelector('.dollarAvg').innerText = '—';
-            row.querySelector('.payableAmount').innerText = '—';
-            row.querySelector('.yoc').innerText = '—';
-        }
+        const average = runningShares > 0 ? runningInvestment / runningShares : 0;
+        const payable = runningShares * divValue;
+        const yoc = average > 0 ? annualDiv / average * 100 : 0;
+        row.querySelector(".investment").textContent = `$${investment.toFixed(2)}`;
+        row.querySelector(".priceAfterComm").textContent = qty > 0 ? `$${(investment / qty).toFixed(2)}` : "—";
+        row.querySelector(".dollarAvg").textContent = included && runningShares > 0 ? `$${average.toFixed(2)}` : "—";
+        row.querySelector(".payableAmount").textContent = included && runningShares > 0 ? `$${payable.toFixed(2)}` : "—";
+        row.querySelector(".yoc").textContent = included && runningShares > 0 ? `${yoc.toFixed(2)}%` : "—";
     });
 
-    const finalAvg = runningShares > 0 ? runningInvestment / runningShares : 0;
-    document.getElementById('totalQty').innerText = runningShares;
-    document.getElementById('totalInvestment').innerText = `$${runningInvestment.toFixed(2)}`;
-    document.getElementById('finalAvg').innerText = `$${finalAvg.toFixed(2)}`;
-    document.getElementById('finalPayable').innerText = `$${(runningShares * divValue).toFixed(2)}`;
-    document.getElementById('finalYoc').innerText = finalAvg > 0 ? `${(annualDiv / finalAvg * 100).toFixed(2)}%` : '0.00%';
+    const average = runningShares > 0 ? runningInvestment / runningShares : 0;
+    document.getElementById("totalQty").textContent = runningShares;
+    document.getElementById("totalInvestment").textContent = `$${runningInvestment.toFixed(2)}`;
+    document.getElementById("finalAvg").textContent = `$${average.toFixed(2)}`;
+    document.getElementById("finalPayable").textContent = `$${(runningShares * divValue).toFixed(2)}`;
+    document.getElementById("finalYoc").textContent = average > 0 ? `${(annualDiv / average * 100).toFixed(2)}%` : "0.00%";
 }

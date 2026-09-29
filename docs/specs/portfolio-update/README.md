@@ -1,10 +1,9 @@
-This task is to code a html version of the python script [addPosition.py][../../../python/addPosition.py] but not ti reuse it , it is in this repo only as part of an oold version is not intended to be used anymore
+This task is to code a html version of the python script [addPosition.py][../../../python/addPosition.py] but not to reuse it , it is in this repo only as part of an oold version is not intended to be used anymore
 
-This is a new and separate page the existent DCA only should be updated to reflect the rules and filtering defined here.
+This is a new and separate page , the existent DCA only should be updated to reflect the rules and filtering defined here.
 
 
-
-This nee module main requirement is to update the json file portfolio allowing the following operations.
+This new  module main requirement is to update the json file portfolio allowing the following operations.
 - Add position 
     there are 2 main ways to add a position :
         * ## Long ##  position we buy a Qty. of an asset if we did not previously own it , means that we are opening a new position and if we already owned it then we are adding more Qty. with a new price to the position.
@@ -145,6 +144,8 @@ For a long sale, realized P&L is `q * PriceOut - CommissionOut - (q * PriceIn + 
 **Long:** Buy 10 units at `$100` with `$1` entry commission. Sell 4 at `$120` with `$0.50` close commission. Allocate `$0.40` of entry commission to the closed quantity. Realized P&L is `$79.10`; the remaining position is 6 units with `$600.60` `Invested` and `$100.10` `AvgPrice`.
 
 **Short:** Sell short 10 units at `$100` with `$1` entry commission. Buy to cover 4 at `$80` with `$0.50` close commission. Allocate `$0.40` of entry commission to the covered quantity. Realized P&L is `$79.10`; the remaining position is 6 units with `$599.40` net opening proceeds in `Invested` and `$99.90` `AvgPrice`.
+
+See [TODO.md](TODO.md) for features intentionally deferred from the first release.
 
 
 

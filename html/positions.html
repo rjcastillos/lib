@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portfolio Positions</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --ink: #202b2a;
+            --muted: #65716f;
+            --paper: #f3f4ef;
+            --surface: #ffffff;
+            --line: #d8ded9;
+            --green: #1f6655;
+            --green-dark: #174c40;
+            --coral: #ae4a34;
+            --coral-pale: #fbefeb;
+            --mint-pale: #e9f2ed;
+            --amber-pale: #fff4db;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: var(--paper);
+            color: var(--ink);
+            font-family: "Aptos", "Segoe UI", sans-serif;
+            font-size: 15px;
+            line-height: 1.45;
+        }
+        button, input, select { font: inherit; }
+        button, select, input { min-height: 40px; }
+        button { cursor: pointer; }
+        :focus-visible { outline: 3px solid #d7774e; outline-offset: 2px; }
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            padding: 16px max(24px, calc((100vw - 1320px) / 2));
+            color: white;
+            background: var(--green-dark);
+        }
+        .brand { display: flex; align-items: baseline; gap: 12px; }
+        .brand strong { font-family: Georgia, serif; font-size: 22px; font-weight: 500; }
+        .brand span { color: #d8e4de; font-size: 13px; }
+        .topbar a { color: #f3d6b9; text-underline-offset: 3px; }
+        main { max-width: 1320px; margin: 0 auto; padding: 28px 24px 56px; }
+        .page-head { display: flex; justify-content: space-between; align-items: end; gap: 24px; margin-bottom: 24px; }
+        h1, h2, h3, p { margin-top: 0; }
+        h1 { margin-bottom: 4px; font-family: Georgia, serif; font-size: 32px; font-weight: 500; }
+        h2 { margin-bottom: 16px; font-size: 19px; font-weight: 650; }
+        h3 { margin-bottom: 10px; font-size: 15px; }
+        .eyebrow { margin-bottom: 3px; color: var(--coral); font-size: 12px; font-weight: 700; text-transform: uppercase; }
+        .page-head p { margin-bottom: 0; color: var(--muted); }
+        .file-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+        .button {
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid var(--green);
+            border-radius: 4px;
+            padding: 8px 14px;
+            color: white;
+            background: var(--green);
+            font-weight: 650;
+        }
+        .button:hover { background: var(--green-dark); }
+        .button.secondary { color: var(--green-dark); background: white; }
+        .button.secondary:hover { background: var(--mint-pale); }
+        .toolbar {
+            display: grid;
+            grid-template-columns: minmax(220px, 1.1fr) minmax(260px, 2fr);
+            gap: 20px;
+            align-items: end;
+            padding: 16px 0 20px;
+            border-top: 1px solid var(--line);
+            border-bottom: 1px solid var(--line);
+        }
+        .field { display: grid; gap: 5px; min-width: 0; }
+        label { color: var(--muted); font-size: 12px; font-weight: 700; }
+        input, select {
+            width: 100%;
+            border: 1px solid #b9c5bf;
+            border-radius: 3px;
+            padding: 8px 10px;
+            color: var(--ink);
+            background: white;
+        }
+        input:disabled, select:disabled { color: #717b78; background: #edf0ed; }
+        .ticker-create { display: grid; grid-template-columns: 100px minmax(150px, 1fr) 120px 120px auto; gap: 10px; align-items: end; }
+        .ticker-create .button { white-space: nowrap; }
+        .status { min-height: 28px; padding: 7px 0; color: var(--green-dark); font-size: 13px; }
+        .status[data-kind="error"] { color: #9b3024; }
+        .status[data-kind="success"] { color: var(--green-dark); }
+        .empty-state { margin: 18px 0 0; padding: 24px 0; border-bottom: 1px solid var(--line); color: var(--muted); }
+        [hidden] { display: none !important; }
+        .warning { margin: 16px 0; padding: 12px 14px; border-left: 4px solid #b47516; background: var(--amber-pale); color: #573b10; }
+        .asset-title { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 10px 0 14px; }
+        .asset-title h2 { margin: 0; font-family: Georgia, serif; font-size: 23px; font-weight: 500; }
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(120px, 1fr));
+            border-top: 1px solid var(--line);
+            border-bottom: 1px solid var(--line);
+            background: #e9eee9;
+        }
+        .metric { padding: 14px 16px; border-right: 1px solid #d4dcd6; }
+        .metric:last-child { border-right: 0; }
+        .metric span { display: block; color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; }
+        .metric strong { display: block; margin-top: 4px; font-variant-numeric: tabular-nums; font-size: 19px; }
+        .metric small { color: var(--muted); font-size: 11px; }
+        .section { padding: 24px 0; border-bottom: 1px solid var(--line); }
+        .section-head { display: flex; justify-content: space-between; gap: 20px; align-items: baseline; }
+        .section-head p { margin: 0; color: var(--muted); font-size: 13px; }
+        .metadata { display: grid; grid-template-columns: repeat(3, minmax(160px, 220px)); gap: 14px; }
+        .form-grid { display: grid; grid-template-columns: repeat(6, minmax(115px, 1fr)); gap: 12px; align-items: end; }
+        .form-grid .button { grid-column: span 2; }
+        .table-wrap { width: 100%; overflow-x: auto; }
+        table { width: 100%; min-width: 780px; border-collapse: collapse; text-align: left; font-size: 13px; }
+        th { padding: 10px 9px; border-bottom: 1px solid #aebbb4; color: var(--muted); font-size: 11px; text-transform: uppercase; white-space: nowrap; }
+        td { padding: 9px; border-bottom: 1px solid #e1e6e2; font-variant-numeric: tabular-nums; white-space: nowrap; }
+        tbody tr:hover { background: #f6f8f5; }
+        td input[type="number"] { min-width: 92px; min-height: 34px; padding: 5px 7px; }
+        .empty-cell { padding: 20px 9px; color: var(--muted); text-align: center; }
+        .close-form { display: grid; grid-template-columns: repeat(3, minmax(140px, 180px)) auto; gap: 12px; align-items: end; margin-top: 14px; }
+        .close-form .button { grid-column: span 1; }
+        .positive { color: #17674d; }
+        .negative { color: #a33328; }
+        .what-if { display: grid; grid-template-columns: minmax(160px, 220px) minmax(250px, 1fr); gap: 16px; align-items: end; max-width: 640px; }
+        .what-if output { display: block; min-height: 40px; padding: 9px 0; font-size: 17px; font-weight: 700; }
+        .footnote { max-width: 820px; color: var(--muted); font-size: 12px; }
+        @media (max-width: 850px) {
+            .page-head { align-items: start; flex-direction: column; }
+            .ticker-create { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
+            .summary { grid-template-columns: repeat(2, minmax(130px, 1fr)); }
+            .metric:nth-child(2n) { border-right: 0; }
+            .form-grid { grid-template-columns: repeat(2, minmax(130px, 1fr)); }
+            .form-grid .button { grid-column: span 2; }
+            .close-form { grid-template-columns: repeat(2, minmax(140px, 1fr)); }
+            .toolbar { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 520px) {
+            main { padding: 20px 15px 40px; }
+            .topbar { padding: 14px 15px; }
+            .brand { align-items: start; flex-direction: column; gap: 0; }
+            .brand span { display: none; }
+            .file-actions { width: 100%; }
+            .file-actions .button { flex: 1; }
+            .ticker-create { grid-template-columns: 1fr 1fr; }
+            .ticker-create .field:nth-child(2) { grid-column: span 2; }
+            .metadata { grid-template-columns: 1fr 1fr; }
+            .what-if { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <header class="topbar">
+        <div class="brand"><strong>Portfolio ledger</strong><span>Local calculations · user-controlled files</span></div>
+        <nav aria-label="Portfolio tools">
+            <a href="index.html">DCA planner</a>
+            <span aria-hidden="true"> · </span>
+            <a href="../docs/specs/portfolio-update/TODO.md">Release TODO</a>
+        </nav>
+    </header>
+    <main>
+        <div class="page-head">
+            <div>
+                <p class="eyebrow">Trading records</p>
+                <h1>Positions</h1>
+                <p>Open positions, selected-lot closes, and realized results.</p>
+            </div>
+            <div class="file-actions">
+                <label class="button secondary" for="portfolioFile">Open JSON</label>
+                <input id="portfolioFile" type="file" accept=".json,application/json" hidden>
+                <button id="exportButton" class="button" type="button">Export portfolio</button>
+            </div>
+        </div>
+
+        <div class="toolbar">
+            <div class="field">
+                <label for="assetDropdown">Real ticker</label>
+                <select id="assetDropdown"><option value="">Load a portfolio</option></select>
+            </div>
+            <form id="newTickerForm" class="ticker-create">
+                <div class="field"><label for="newTickerInput">New ticker</label><input id="newTickerInput" required maxlength="16" placeholder="e.g. AAPL"></div>
+                <div class="field"><label for="newNameInput">Asset name</label><input id="newNameInput" placeholder="Company name"></div>
+                <div class="field"><label for="newDividendInput">Dividend / cycle</label><input id="newDividendInput" type="number" min="0" step="any" value="0"></div>
+                <div class="field"><label for="newPeriodicityInput">Period</label><select id="newPeriodicityInput"><option value="M">Monthly</option><option value="Q">Quarterly</option><option value="S">Semi-annual</option><option value="A">Annual</option></select></div>
+                <button class="button secondary" type="submit">Add ticker</button>
+            </form>
+        </div>
+        <div id="statusMessage" class="status" role="status" aria-live="polite"></div>
+        <p id="emptyState" class="empty-state">Open a portfolio JSON file or add a ticker to begin.</p>
+
+        <section id="assetPanel" hidden>
+            <div id="legacyPlannerWarning" class="warning" role="alert" hidden></div>
+            <div class="asset-title"><h2 id="assetHeading"></h2></div>
+            <div class="summary" aria-label="Current position summary">
+                <div class="metric"><span>Direction</span><strong id="positionDirection">Flat</strong></div>
+                <div class="metric"><span>Open quantity</span><strong id="positionQuantity">0</strong></div>
+                <div class="metric"><span>Average basis</span><strong id="positionAverage">$0.00</strong></div>
+                <div class="metric"><span>Open basis / proceeds</span><strong id="positionInvested">$0.00</strong></div>
+                <div class="metric"><span>Dividend amount</span><strong id="positionDividend">$0.00</strong><small id="positionDividendUnit">per payout</small></div>
+            </div>
+
+            <section class="section">
+                <h2>Asset details</h2>
+                <form id="metadataForm" class="metadata">
+                    <div class="field"><label for="dividendInput">Dividend per share / cycle</label><input id="dividendInput" type="number" min="0" step="any"></div>
+                    <div class="field"><label for="periodicityInput">Payout period</label><select id="periodicityInput"><option value="M">Monthly</option><option value="Q">Quarterly</option><option value="S">Semi-annual</option><option value="A">Annual</option></select></div>
+                </form>
+            </section>
+
+            <section class="section">
+                <div class="section-head"><h2>Open or add to position</h2><p>Only the current direction can be increased.</p></div>
+                <form id="openTradeForm" class="form-grid">
+                    <div class="field"><label for="tradeDirection">Direction</label><select id="tradeDirection"><option value="Long">Long · buy</option><option value="Short">Short · sell</option></select></div>
+                    <div class="field"><label for="strategyInput">Strategy</label><select id="strategyInput"><option>SniperNine</option><option>Daytrade</option><option>SwingTrade</option><option>LongtimeInvestment</option></select></div>
+                    <div class="field"><label for="entryQuantity">Quantity</label><input id="entryQuantity" type="number" min="0.00000001" step="any" required></div>
+                    <div class="field"><label for="entryPrice">Entry price</label><input id="entryPrice" type="number" min="0" step="any" required></div>
+                    <div class="field"><label for="entryCommission">Entry commission</label><input id="entryCommission" type="number" min="0" step="0.01" value="0" required></div>
+                    <div class="field"><label for="entryDate">Entry date</label><input id="entryDate" type="date" required></div>
+                    <button id="openTradeButton" class="button" type="submit">Record open trade</button>
+                </form>
+            </section>
+
+            <section class="section">
+                <div class="section-head"><h2>Open lots</h2><p>Select one or more lots and enter the quantity to reduce or close.</p></div>
+                <form id="closeTradeForm">
+                    <div class="table-wrap">
+                        <table>
+                            <thead><tr><th>Select</th><th>Side</th><th>Strategy</th><th>Opened</th><th>Open qty</th><th>Entry price</th><th>Entry fee remaining</th><th>Close qty</th></tr></thead>
+                            <tbody id="openLotsBody"></tbody>
+                        </table>
+                    </div>
+                    <div class="close-form">
+                        <div class="field"><label for="closePrice">Exit price</label><input id="closePrice" type="number" min="0" step="any" required></div>
+                        <div class="field"><label for="closeCommission">Total close commission</label><input id="closeCommission" type="number" min="0" step="0.01" value="0" required></div>
+                        <div class="field"><label for="closeDate">Close date</label><input id="closeDate" type="date" required></div>
+                        <button id="closeTradeButton" class="button" type="submit">Reduce / close selected</button>
+                    </div>
+                </form>
+            </section>
+
+            <section class="section">
+                <div class="section-head"><h2>Close-now estimate</h2><p>Unrealized P&amp;L before a future closing commission.</p></div>
+                <div class="what-if">
+                    <div class="field"><label for="currentPriceInput">Current price</label><input id="currentPriceInput" type="number" min="0" step="any"></div>
+                    <output id="closeNowResult" aria-live="polite">Enter a current price to estimate unrealized P&amp;L.</output>
+                </div>
+            </section>
+
+            <section class="section">
+                <div class="section-head"><h2>Closed lots</h2><p>Realized P&amp;L includes allocated entry and exit commissions.</p></div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Side</th><th>Strategy</th><th>Opened</th><th>Closed</th><th>Qty</th><th>Entry</th><th>Exit</th><th>Exit fee</th><th>Realized P&amp;L</th></tr></thead>
+                        <tbody id="closedLotsBody"></tbody>
+                    </table>
+                </div>
+            </section>
+            <p class="footnote">Portfolio data stays in this browser session. Export creates a JSON download; it does not modify the file you opened. Short-position basis is net opening proceeds after entry commission.</p>
+        </section>
+    </main>
+    <script src="positions-core.js"></script>
+    <script src="positions-app.js"></script>
+</body>
+</html>
