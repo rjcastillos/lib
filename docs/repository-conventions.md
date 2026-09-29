@@ -1,6 +1,6 @@
 ---
 title: Trade Lib
-version: 1.0.0
+version: 1.0.1
 owner: Ramon Castillo Sanchez
         ramon.castillosanchez@rewe-group.com
         ramon@rcastillo.net
@@ -10,7 +10,15 @@ owner: Ramon Castillo Sanchez
 
 ## Repository Description
 
-Trade Lib is a centralized collection of reusable calculataion to quickly evaluate a trade.
+Trade Lib is a centralized collection of reusable calculations to evaluate a trade or enter a poisition.
+
+It intents to be the daily go to tools to buy assets such as stocks , commodities or crypto.
+
+These tools are:
+- Visual in the form of html with a forseen future to evolve to apps.
+- Command Lines and or libraries in GO , Python or JS to be easily reused.
+- Keep track of assets 
+
 
 ---
 

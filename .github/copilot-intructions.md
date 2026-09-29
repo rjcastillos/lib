@@ -3,7 +3,14 @@
 ## Repository Purpose
 
 This repository is a collection of usefully functions to perform finacncial calculations oriented to trading
- 
+
+It intents to be the daily go to tools to buy assets such as stocks , commodities or crypto.
+
+These tools are:
+- Visual in the form of html with a forseen future to evolve to apps.
+- Command Lines and or libraries in GO , Python or JS to be easily reused.
+- Keep track of assets 
+
 ## Core Rules
 
 - Treat the visible root-level directories as the canonical source layout for this repository.
