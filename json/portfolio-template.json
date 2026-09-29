@@ -1,3 +1,4 @@
+{
   "TICKER": {
     "name": "Company Name Inc. (TICKER)",
     "Ticker": "TICKER",
@@ -23,9 +24,11 @@
         "PriceIn": 0.00,
         "Commission": 0.00,
         "DateOut": "",
-        "PriceOut": 0.00
+        "PriceOut": 0.00,
+        "CommissionOut": 0.00
       }
     ],
     "Invested": 0.00,
     "DivAmnt": 0.00
   }
+}

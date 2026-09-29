@@ -17,29 +17,35 @@ The root JSON object functions as a key-value dictionary. Each primary key repre
 * **`Ticker`** *(String)*: Capitalized asset ticker benchmark identifier (e.g., `"PFE"`).
 * **`Div`** *(Float)*: Dividend distribution layout pay rate per share for the assigned single cycle period.
 * **`Price`** *(Float)*: Base market evaluation asset price value or targeted evaluation layer tracking mark.
-* **`Periodicity`** *(String)*: Operational key identifying distribution interval cycles. 
+* **`Periodicity`** *(String)*: Distribution interval for `Div`.
   * Valid inputs: `"M"` (Monthly), `"Q"` (Quarterly), `"S"` (Semi-Annual), `"A"` (Annual).
-* **`Qty`** *(Float)*: Absolute aggregate current share volume inventory holding count across positions.
+  * Payouts per year: `M` = 12, `Q` = 4, `S` = 2, `A` = 1.
+* **`Qty`** *(Float)*: Nonnegative magnitude of the aggregate open position. `Positions[0].Direction` identifies long versus short.
 * **`NextExDate`** *(String)*: Imminent system Ex-Dividend date calendar deadline tracking marker (`YYYYMMDD`).
 
 ### Complex Layout Components
 * **`Positions`** *(Array of Objects)*: Structural block aggregating position details.
   * **`Direction`** *(String)*: Market path bias orientation parameter (e.g., `"Long"`).
   * **`Size`** *(Float)*: Collective active shared balance size volume matching entry level state.
-  * **`AvgPrice`** *(Float)*: Historical weighted absolute entry cost calculation average layer benchmark price.
+  * **`AvgPrice`** *(Float)*: Direction-adjusted weighted entry basis per open unit, including allocated entry commissions. For longs it is entry cost per unit; for shorts it is net opening proceeds per unit after commission.
 * **`Trades`** *(Array of Objects)*: Sequential layer data containing historical or simulated cost-reduction tranches.
   * **`On`** *(Boolean)*: System logical switch parameter flag (`true` / `false`) mapping calculation impacts.
   * **`Strategy`** *(String)*: System algorithmic designation strategy or tag trace note parameter text string.
-  * **`Qty`** *(Float/String)*: Layer shared volume purchase amount sizing for the specific trade block.
-  * **`Direction`** *(String)*: Transaction path positioning type definition setting indicator.
-  * **`DateIn`** *(String)*: Entry execution transaction calendar layout datetime snapshot reference timestamp.
-  * **`PriceIn`** *(Float/String)*: Purchase price target metrics matching the original entry layout state.
-  * **`Commission`** *(Float)*: Execution overhead cost allocation price matching broker parameters.
-  * **`DateOut` / `PriceOut`**: Historical close path variables for managing full trade lifecycles.
+  * **`Qty`** *(Float)*: Positive quantity magnitude for the entry lot or closed portion.
+  * **`Direction`** *(String)*: Position side for the entry lot: `"Long"` or `"Short"`.
+  * **`DateIn`** *(String)*: Date of the opening execution.
+  * **`PriceIn`** *(Float)*: Entry execution price per unit; it is the buy price for a long and the sale price for a short.
+  * **`Commission`** *(Float)*: Entry execution commission allocated to this lot quantity.
+  * **`DateOut` / `PriceOut`**: Closing execution date and price per unit. Required for a fully or partially closed record (`On: false`); blank/zero while open.
+  * **`CommissionOut`** *(Float)*: Closing execution commission allocated to this closed quantity. It is a cost in realized P&L and is zero while open. Treat it as zero when absent from legacy records.
 
 ### Aggregates
-* **`Invested`** *(Float)*: Gross cumulative net monetary currency cash liquidity value deployed to asset holdings.
-* **`DivAmnt`** *(Float)*: Gross annual profile dividend layout passive cash generation total projections.
+* **`Invested`** *(Float)*: Basis for the open quantity. For longs, sum of entry cost plus allocated entry commission. For shorts, net opening sale proceeds after allocated entry commission. Closing fees affect realized P&L, not the remaining open basis.
+* **`DivAmnt`** *(Float)*: Gross dividend amount per payout cycle for the current quantity, calculated as `Qty * Div`. It is not annualized. Derive an annual projection separately as `DivAmnt * payouts per year` using `Periodicity`.
+
+### Dividend Amount Example
+
+For 300 shares with `Div` = `$0.12` per monthly cycle, `DivAmnt` is `$36` per cycle. The annual projection is `$432` (`$36 * 12`), but `DivAmnt` remains `$36`.
 
 ---
 
@@ -48,6 +54,7 @@ The root JSON object functions as a key-value dictionary. Each primary key repre
 Use this blueprint profile object schema setup parameters layer when appending new stock assets into the file registry structure layout frame manually:
 
 ```json
+{
   "TICKER": {
     "name": "Company Name Inc. (TICKER)",
     "Ticker": "TICKER",
@@ -73,12 +80,14 @@ Use this blueprint profile object schema setup parameters layer when appending n
         "PriceIn": 0.00,
         "Commission": 0.00,
         "DateOut": "",
-        "PriceOut": 0.00
+        "PriceOut": 0.00,
+        "CommissionOut": 0.00
       }
     ],
     "Invested": 0.00,
     "DivAmnt": 0.00
   }
+}
 ```
 
 ---

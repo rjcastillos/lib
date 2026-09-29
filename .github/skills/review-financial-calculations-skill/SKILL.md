@@ -11,6 +11,7 @@ Use this skill to reason about the repository's financial calculations. It suppo
 
 - For DCA and yield-on-cost formulas, start with `docs/specs/Dollar-cost-average-planning/README.md`.
 - For portfolio fields and JSON representations, read `json/portfolio.md` and `json/portfolio-template.json`.
+- For the new position page's opens, partial closes, short positions, and realized P&L, use `docs/specs/portfolio-update/README.md` as the behavioral source of truth. These rules do not describe the existing DCA-only calculator.
 - Compare those documents with the owning implementation. If the spec, schema, and code disagree, report the mismatch and clarify intended behavior before changing the model. Do not treat an implementation detail as an approved financial rule.
 
 ## Current DCA Model
@@ -29,19 +30,19 @@ For the asset manager, the formulas are:
 - Dollar average is cumulative active investment divided by cumulative active shares. It is a weighted cost basis, not the arithmetic mean of tranche prices.
 - `Div` is the dividend per share for one payout period. In `app.js`, `Periodicity` maps monthly, quarterly, semi-annual, and annual periods to 12, 4, 2, and 1 payouts per year. In `DCA.html`, the input is monthly and is multiplied by 12.
 - Annual dividend per share is `Div` times the payout multiplier. Payable amount per period is cumulative active shares times `Div`.
+- `DivAmnt` is the gross dividend amount per payout cycle, calculated as the current quantity times `Div`. It is not annualized; derive an annual projection by multiplying by the `Periodicity` payout count.
 - Yield on cost is annual dividend per share divided by the applicable dollar average, times 100. It is based on acquisition cost, not current market price; do not call it current yield.
 - In the asset manager, inactive tranches do not contribute shares or investment to cumulative figures; the separate `DCA.html` calculator has no inactive state. Preserve separately displayed per-tranche values according to the owning page's UI contract.
 
-Known unresolved schema mismatch: `html/app.js` currently stores `DivAmnt` as total shares times `Div` (the per-period amount), while `json/portfolio.md` describes `DivAmnt` as an annual projection. Confirm whether consumers expect a per-period or annual total before changing this field or its formula.
-
 A useful arithmetic check is 100 shares at $10 with a $1 commission: investment is $1,001 and price after commission is $10.01 per share. Two equal-size tranches at different prices must produce a quantity-weighted average, not an unweighted average of their prices.
 
-The checked-in AGNC fixture provides an end-to-end formula example for the asset manager: three active tranches of 100 shares at $9.68, $9.50, and $9.40, each with a $1 commission, total 300 shares and $2,861 invested. The weighted average is $2,861 / 300 = $9.5367; at a monthly dividend of $0.12, monthly payable is $36, annual dividend per share is $1.44, and YOC is about 15.10%. The projected annual dividend total is $432. `DivAmnt` is currently saved as $36, confirming it stores the per-period amount in code despite its annual definition in the schema.
+The checked-in AGNC fixture provides an end-to-end formula example for the asset manager: three active tranches of 100 shares at $9.68, $9.50, and $9.40, each with a $1 commission, total 300 shares and $2,861 invested. The weighted average is $2,861 / 300 = $9.5367; at a monthly dividend of $0.12, `DivAmnt` and the monthly payable are $36 per cycle. Annual dividend per share is $1.44, annual projected total is $432, and YOC is about 15.10%.
 
 ## Trading and Financial Boundaries
 
 - The current formula set does not model sells, short positions, realized/unrealized profit and loss, tax lots, fees beyond commission, currency conversion, stock splits, corporate actions, dividend reinvestment, or changing/future dividend declarations.
-- Trade fields such as `DateOut`, `PriceOut`, and `Direction` do not by themselves establish how closed or short positions affect the calculations. Do not infer those rules.
+- In the existing DCA calculator, trade fields such as `DateOut`, `PriceOut`, and `Direction` do not implement closed or short position calculations. Do not infer those behaviors from that calculator.
+- The separate portfolio-update spec defines direction-specific basis, partial-close lot splitting, entry/exit commission allocation, and realized P&L for the new positions page. Do not apply those rules to the existing DCA calculator.
 - DCA here means sequential cost-basis tranches in a ledger; it does not implement a scheduled contribution calendar or forecast purchase prices.
 - Dividend and yield outputs are gross projections based on the entered per-period dividend. Do not imply a guaranteed payment or return.
 - Preserve transaction dates and source values when saving calculations unless the user has explicitly defined a mutation rule.

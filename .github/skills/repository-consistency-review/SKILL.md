@@ -58,7 +58,7 @@ Execute these steps in order:
 2. **Check conventions:** Compare naming, entry-point filenames, metadata, front matter, and directory rules with representative assets and templates.
 3. **Check documentation:** Compare README, contribution, getting-started, and tool documentation with current paths, commands, defaults, and behavior.
 4. **Check implementation claims:** Compare scripts and examples with their documented inputs, outputs, transformations, exclusions, and safety controls.
-5. **Check repository memory:** Verify decision and prompt-history numbering, required fields, links, affected paths, and supersession status.
+5. **Check repository memory:** Verify decision numbering, date-based prompt-history filenames, required fields, links, affected paths, and supersession status.
 6. **Find incomplete content:** Identify empty, unfinished, duplicated, placeholder-only, machine-specific, or contradictory files.
 7. **Check validation coverage:** Compare stated validation requirements with available tests, validators, CI workflows, and executable checks.
 8. **Classify findings:** Separate confirmed inconsistencies from suggestions and owner decisions.
@@ -104,10 +104,10 @@ Never:
 
 When the user requests a durable review:
 
-1. Use the next available number in `copilot/prompt-history/`.
+1. Name the entry `YYYY-MM-DD-short-topic.md`, using the review date and a concise kebab-case topic. If multiple entries share a date, distinguish them with descriptive topic text rather than a sequence number.
 2. Record the date, asset or prompt used, scope, findings summary, affected areas, and validation performed.
 3. Link to a decision record only when one exists.
-4. Use the next available number in `copilot/decisions/` for an accepted policy change.
+4. Use the next available number in `copilot/decisions/` for an accepted policy change; decision records remain numbered.
 5. Preserve earlier records and state when a new decision supersedes one.
 6. Update the relevant README or conventions document only when the review changes a path, rule, workflow, or supported behavior.
 

@@ -21,7 +21,7 @@ Create a numbered Markdown file in `decisions/` for an accepted repository-level
 
 ## Recording Prompt Changes
 
-Add an entry to `prompt-history/` when a prompt, agent, or skill is introduced or substantially changed. Record the change, its justification, affected asset, and date.
+Add an entry to `prompt-history/` when a prompt, agent, or skill is introduced or substantially changed. Name it `YYYY-MM-DD-short-topic.md` with a concise kebab-case topic; distinguish same-day entries by topic rather than sequence number. Record the change, its justification, affected asset, and date.
 
 Project-specific memory belongs with the generated project, normally under `.github/copilot/`.
 
