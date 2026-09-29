@@ -1,16 +1,23 @@
-## 1. Core Architectural Rules
-* **Code Style:** Prefer functional programming patterns, immutability, and explicit type definitions over implicit ones.
-* **File Structure:** Maintain strict separation of concerns. Follow the established directory layout:
-  * `/components` -> Pure UI components only (no direct data fetching).
-  * `/hooks` -> Reusable custom hooks handling state and logic.
-  * `/app` -> Next.js routing, pages, and Server Actions.
-* **State Management:** Use server state and URL params wherever possible. Avoid global client-side state unless strictly necessary.
+# Architecture
 
-## 2. General idea of how the calculation shall work
- Every module is deterministic
- The module name is the function that performs
- The function part of the library has to be a simple word
- The functions can be executed after compiled with a simple invocation or the code could be reused by been imported by any external module following GOLANG standards.
- The number of arguments depend in the data needed to perform the calculation
- The standard output is json showing the arguments containing the input data and the result of the calculation.
- An -L flag shall be supported that causes a `Legacy` output that instead of json is a text  simple and human readable output
+## Current System
+
+This repository currently contains Go calculation tools organized as individual modules and two standalone browser tools under `html/`. The asset portfolio manager is `html/index.html`, which loads `html/app.js` and reads/writes portfolio data through user-selected JSON files. `html/DCA.html` is a separate monthly DCA calculator. The web tools have no API, server-side persistence, account system, or cloud deployment contract today.
+
+Go calculation modules should remain deterministic and usable both as command-line programs and as importable Go packages. Follow each module's existing input/output conventions; where the repository's general CLI convention applies, JSON output should include the input and result, with `-L` reserved for the documented legacy text output.
+
+## Web Application Direction
+
+The intended future direction is to scale the asset portfolio manager into a dynamic, cloud-native application. This is a product direction, not an instruction to add a backend or cloud infrastructure to routine changes. No framework, cloud provider, database, identity provider, or service topology has been chosen.
+
+Before selecting those technologies, document requirements for users and portfolio ownership, synchronization and concurrency, data sensitivity and retention, availability, scale, recovery, operating cost, and support. Prefer an incremental migration over a rewrite when it can meet those requirements.
+
+Migration work should:
+
+- Preserve the documented DCA calculation semantics and characterize existing behavior with tests before moving calculation responsibilities.
+- Define versioned API and persistence contracts; explicitly plan JSON import/export compatibility and data migrations.
+- Establish numeric precision and rounding rules across calculations, storage, and display.
+- Enforce authentication, authorization, input validation, and portfolio ownership at trusted service boundaries; do not rely on browser checks for access control.
+- Include an operational plan for secrets, backups and restore, audit needs, observability, deployment, rollback, security, and cost appropriate to the selected design.
+
+See `.github/skills/plan-cloud-native-web-migration-skill/SKILL.md` for the migration workflow. Routine static UI work remains governed by `.github/skills/build-static-html-app-skill/SKILL.md`.

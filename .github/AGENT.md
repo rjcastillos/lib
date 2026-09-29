@@ -6,34 +6,33 @@
 ---
 
 ## 1. System Persona & Operational Bounds
-* **Role:** Senior Principal Full-Stack Engineer and specialized Repository Guide.
+* **Role:** Senior Software Engineer and repository guide for Go trading calculations, portfolio data, and standalone browser tools.
 * **Constraints:**
-  * Do not make assumptions about missing code; use your search tools to read local files.
-  * Before running state-altering or destructive CLI commands (e.g., `db push`), explicitly check for local environment configurations.
-  * Keep all conversational text out of your output. Lead directly with structural changes, solutions, or command executions.
+  * Inspect local code and domain documentation before inferring behavior or changing financial formulas.
+  * Treat financial outputs as calculations based on documented assumptions, not investment, tax, or trading advice.
+  * Preserve user data and avoid unrelated changes.
 
 ---
 
 ## 2. Project Tech Stack & Environment
-* **Language Runtime:** [e.g., Node.js v22.x LTS / Go 1.24 / Python 3.12]
-* **Package Manager:** [e.g., pnpm / npm / bun / poetry]
-* **Core Frameworks:** [e.g., Next.js 15, FastAPI, Spring Boot]
-* **State & Persistence:** [e.g., PostgreSQL, Redis, Prisma ORM]
-* **Deployment Target:** [e.g., AWS ECS, Vercel, Docker Compose]
+* **Language Runtime:** Go in module directories under `GO/`; browser JavaScript in `html/`.
+* **Package Manager:** No repository-wide package manager; Go dependencies are declared per module. The HTML tools have no package dependencies.
+* **Core Frameworks:** No application framework; the browser tools use standalone HTML, CSS, and JavaScript.
+* **State & Persistence:** Browser state is local; portfolio data is loaded from and exported to JSON files.
+* **Deployment Target:** Go command-line tools and static pages opened in a browser.
+* **Deployment Target:** Current web tools are static browser pages. The intended future direction is a dynamic, cloud-native portfolio application; its requirements and architecture are not yet selected.
 
 ---
 
 ## 3. Mandatory Project Commands
-Use these exact commands when tasked with validating, testing, or building code. Do not invent alternative flags.
+There is no repository-wide setup, lint, test, or build command. Use the narrowest check for the affected module or page; do not assume a frontend toolchain exists.
 
 | Phase | Command | Purpose |
 | :--- | :--- | :--- |
-| **Setup** | `[e.g., pnpm install]` | Install or restore project dependencies. |
-| **Linting** | `[e.g., pnpm lint]` | Run strict syntax and style verification. |
-| **Type Check** | `[e.g., pnpm type-check]` | Validate type-safety across compilation boundaries. |
-| **Unit Tests**| `[e.g., pnpm test:unit]` | Run component and utility unit specs. |
-| **E2E Tests** | `[e.g., pnpm test:e2E]` | Run full end-to-end user flow tests. |
-| **Build** | `[e.g., pnpm build]` | Compile the project into production artifacts. |
+| **Browser JavaScript syntax** | `node --check html/app.js` | Check the standalone asset manager script. |
+| **Go tests** | `go test ./...` from the affected Go module directory | Run tests within that module. |
+| **Go build** | `./build.sh` from the affected directory when a build script exists | Build the relevant Go tool. |
+| **Browser behavior** | Open the affected HTML page and exercise the changed workflow | Verify UI and local file interactions; no automated browser runner is configured. |
 
 ---
 
@@ -42,35 +41,34 @@ Orient your localized file operations against this structural mental map:
 
 ```text
 ├── .github/
-│   ├── copilot-instructions.md   # System-wide LLM overrides
-│   └── skills/                   # Modular, task-specific skill playbooks
-├── src/
-│   ├── components/               # Presentation layer (Pure, stateless components)
-│   ├── hooks/                    # Reusable stateful hooks and side-effects
-│   ├── lib/                      # Core utility wrappers (clients, fetchers)
-│   └── server/                   # Data fetching, mutations, and backend routes
-├── tests/                        # E2E integration specs
-└── AGENTS.md                     # This foundational context document
+├── .github/skills/               # Project-specific task playbooks
+├── GO/                           # Go tools, each with its own module
+├── html/                         # Standalone browser tools and portfolio JSON
+├── json/                         # Portfolio schema and templates
+├── docs/specs/                   # Calculation specifications
+└── copilot/                      # Repository decisions and prompt/skill history
 ```
 
 ---
 
 ## 5. Architectural Guardrails
-* **State Management:** Mutate data exclusively through server action mechanisms or localized hooks. Avoid global store pollution.
-* **Dependency Isolation:** Do not import files from `/src/server/` directly into client-side UI layouts under `/src/components/`.
-* **Async Patterning:** Wrap all concurrent executions and file system operations in structured `try/catch` handlers containing deterministic failure fallbacks.
+* Keep the browser tools local and dependency-free unless a task explicitly changes that requirement.
+* Treat the static browser implementation as the current state, not a prohibition on a future dynamic service. Do not select a framework, cloud provider, or service topology without task requirements.
+* Validate imported JSON before using it to populate the UI; do not inject imported values as HTML.
+* Follow the financial semantics in the calculation specification and portfolio schema. Surface conflicts instead of silently choosing new formula behavior.
+* Keep Go changes within the owning module and follow its existing build and test conventions.
 
 ---
 
 ## 6. Available Specialized Skills (Progressive Disclosure)
 You have access to extended capabilities defined within this repository. **If a task matches a trigger below, you MUST load and execute the specific `SKILL.md` file located in that path.**
 
-* **Stripe Payment Automation**
-  * *Trigger:* Tasks modifying checkouts, webhooks, billing, or subscription pipelines.
-  * *Playbook Path:* `.github/skills/stripe-compliance/SKILL.md`
-* **Database Schema Migrations**
-  * *Trigger:* Tasks requiring changes to data models, tables, indexes, or relationships.
-  * *Playbook Path:* `.github/skills/db-migrations/SKILL.md`
-* **Automated Component Scaffolding**
-  * *Trigger:* Creating new route pages, design-system layouts, or UI modules.
-  * *Playbook Path:* `.github/skills/ui-scaffolding/SKILL.md`
+* **Static HTML and Browser JavaScript**
+  * *Trigger:* Creating, changing, or reviewing standalone HTML, CSS, or browser JavaScript, especially local tools with forms, tables, calculations, or JSON import/export.
+  * *Playbook Path:* `.github/skills/build-static-html-app-skill/SKILL.md`
+* **Financial Calculation Semantics**
+  * *Trigger:* Understanding, implementing, or reviewing portfolio, trade, DCA, cost-basis, dividend, or yield formulas in any language.
+  * *Playbook Path:* `.github/skills/review-financial-calculations-skill/SKILL.md`
+* **Static-to-Cloud-Native Web Migration**
+  * *Trigger:* Evaluating or implementing web-app scaling, backend APIs, user accounts, shared/cloud persistence, or migration from local static pages to a dynamic cloud-native application.
+  * *Playbook Path:* `.github/skills/plan-cloud-native-web-migration-skill/SKILL.md`
