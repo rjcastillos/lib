@@ -1,38 +1,59 @@
 # Portfolio JSON Database Schema Documentation
 
-This document defines the local database schema, key definitions, and operational constraints for managing the `portfolio.json` configuration ledger file.
+This document defines the portfolio JSON fields and the trade formats supported by the browser tools. The canonical starter file includes a blank planner profile and worked real-position examples in [`portfolio-template.json`](portfolio-template.json).
 
 ---
 
 ## 📁 JSON Data Structure Overview
 
-The root JSON object functions as a key-value dictionary. Each primary key represents a distinct stock ticker symbol, holding an object that contains metadata parameters, core positions, a transaction array, and active financial summaries.
+The root JSON object is keyed by ticker symbol. Each value contains asset metadata, a `Trades` history, and aggregate position fields. The aggregate fields for real positions are derived from the trade history by the positions tool.
 
 ---
 
 ## 🔑 Data Definition Dictionary
 
 ### Meta Parameter Metrics
-* **`name`** *(String)*: Full commercial or corporate asset descriptor name (e.g., `"Pfizer Inc. (PFE)"`).
-* **`Ticker`** *(String)*: Capitalized asset ticker benchmark identifier (e.g., `"PFE"`).
-* **`Div`** *(Float)*: Dividend distribution layout pay rate per share for the assigned single cycle period.
-* **`Price`** *(Float)*: Base market evaluation asset price value or targeted evaluation layer tracking mark.
-* **`Periodicity`** *(String)*: Distribution interval for `Div`.
-  * Valid inputs: `"M"` (Monthly), `"Q"` (Quarterly), `"S"` (Semi-Annual), `"A"` (Annual).
-  * Payouts per year: `M` = 12, `Q` = 4, `S` = 2, `A` = 1.
-* **`Qty`** *(Float)*: Nonnegative magnitude of the aggregate open position. `Positions[0].Direction` identifies long versus short.
-* **`NextExDate`** *(String)*: Imminent system Ex-Dividend date calendar deadline tracking marker (`YYYYMMDD`).
+* **`name`** *(String)*: Human-readable asset name.
+* **`Ticker`** *(String)*: Asset ticker value. Planner tickers are conventionally dot-prefixed in the root key.
+* **`Div`** *(Number)*: Dividend per share for one payout cycle.
+* **`Price`** *(Number)*: Stored price/mark field; it is not used to derive trade basis.
+* **`Periodicity`** *(String)*: Payout interval for `Div`: `M` (monthly), `Q` (quarterly), `S` (semi-annual), or `A` (annual). These correspond to 12, 4, 2, and 1 payouts per year.
+* **`Qty`** *(Number)*: Nonnegative magnitude of the aggregate open position. `Positions[0].Direction` determines its side.
+* **`NextExDate`** *(String)*: Next ex-dividend date. The positions page displays valid compact dates in `YYYYMMDD` format; other formats are currently hidden.
 
 ### Complex Layout Components
-* **`Positions`** *(Array of Objects)*: Structural block aggregating position details.
-  * **`Direction`** *(String)*: Market path bias orientation parameter (e.g., `"Long"`).
-  * **`Size`** *(Float)*: Collective active shared balance size volume matching entry level state.
-  * **`AvgPrice`** *(Float)*: Direction-adjusted weighted entry basis per open unit, including allocated entry commissions. For longs it is entry cost per unit; for shorts it is net opening proceeds per unit after commission.
-* **`Trades`** *(Array of Objects)*: Ordered execution history. New real-position executions are append-only rows with `Action` (`"Buy"` or `"Sell"`), `Strategy`, positive `Qty`, `Date` (`YYYY-MM-DD`), execution `Price`, and execution `Commission`. Do not edit earlier executions when reducing a position. Legacy rows using `On`, `Direction`, `DateIn`, `PriceIn`, `DateOut`, `PriceOut`, and `CommissionOut` remain supported. `On` is a planner toggle for `DCA_Planner` rows; on new execution rows it is omitted.
+* **`Positions`** *(Array of Objects)*: Derived position summary. The positions page writes one entry with `Direction` (`Long` or `Short`), open `Size`, and `AvgPrice`. `AvgPrice` is average-cost basis per open unit, including opening commissions for longs and net of opening commissions for shorts. It is zero when flat.
+
+### Trade Record Formats
+
+`Trades` is an ordered array and currently supports planner rows, legacy lot-shaped rows, and append-only real-position executions. Do not mix the two real-position formats for the same ticker unless migrating its history deliberately.
+
+#### DCA Planner Row
+
+Planner rows use `Strategy: "DCA_Planner"` and are conventionally stored under dot-prefixed ticker keys such as `.AAPL`. `On` is a visual inclusion toggle in the planner, not a real-position open/closed state. A planner row commonly has `Qty`, `Direction`, `DateIn`, `PriceIn`, `Commission`, `DateOut`, `PriceOut`, and `CommissionOut`.
+
+#### Legacy Lot-Shaped Real-Position Row
+
+Older real-position portfolios use `On`, `Direction`, `DateIn`, `PriceIn`, `Commission`, `DateOut`, `PriceOut`, and optionally `CommissionOut`. `On: true` marks an open row; `On: false` is a historical closed row. Missing legacy `CommissionOut` is treated as zero. These rows remain readable by the positions page and trade-history view.
+
+#### Append-Only Real-Position Execution
+
+New real-position trades append one row per executed buy or sell and never rewrite earlier executions:
+
+| Field | Format and meaning |
+| --- | --- |
+| `Action` | Required string: `Buy` or `Sell`. |
+| `Strategy` | Required string: `SniperNine`, `Daytrade`, `SwingTrade`, or `LongtimeInvestment`. |
+| `Qty` | Required positive number representing the execution quantity magnitude. |
+| `Date` | Required valid calendar date in `YYYY-MM-DD` format; future dates are rejected. |
+| `Price` | Required nonnegative execution price per unit. |
+| `Commission` | Nonnegative fee for this execution; defaults to zero if omitted by an imported row. |
+
+New execution rows do not have `On`, `Direction`, `DateIn`, `PriceIn`, `DateOut`, or `PriceOut`. Direction is inferred by processing the executions in order: a buy increases long quantity or covers a short; a sell increases short quantity or reduces a long. A single execution cannot reverse an open position; close it first.
 
 ### Aggregates
-* **`Invested`** *(Float)*: Average-cost basis for the open quantity. For longs, acquisition cost plus opening commissions less basis released by sales. For shorts, net opening sale proceeds less basis released by covers. Closing commissions affect realized P&L, not remaining open basis.
-* **`DivAmnt`** *(Float)*: Gross dividend amount per payout cycle for the current quantity, calculated as `Qty * Div`. It is not annualized. Derive an annual projection separately as `DivAmnt * payouts per year` using `Periodicity`.
+* **`Invested`** *(Number)*: Average-cost basis for the open quantity. For longs, acquisition cost plus opening commissions less basis released by sales. For shorts, net opening sale proceeds less basis released by covers. Closing commissions affect realized P&L, not remaining basis.
+* **`DivAmnt`** *(Number)*: Gross dividend amount for one payout cycle, calculated as `Qty * Div`. It is not annualized. Derive an annual projection separately as `DivAmnt * payouts per year` using `Periodicity`.
 
 ### Dividend Amount Example
 
@@ -40,51 +61,14 @@ For 300 shares with `Div` = `$0.12` per monthly cycle, `DivAmnt` is `$36` per cy
 
 ---
 
-## 📋 Blank Structural Profile Template
+## Examples
 
-Use this blueprint profile object schema setup parameters layer when appending new stock assets into the file registry structure layout frame manually:
-
-```json
-{
-  "TICKER": {
-    "name": "Company Name Inc. (TICKER)",
-    "Ticker": "TICKER",
-    "Div": 0.00,
-    "Price": 0.00,
-    "Periodicity": "M",
-    "Qty": 0,
-    "NextExDate": "",
-    "Positions": [
-      {
-        "Direction": "Long",
-        "Size": 0.0,
-        "AvgPrice": 0.00
-      }
-    ],
-    "Trades": [
-      {
-        "On": true,
-        "Strategy": "DCA_Planner",
-        "Qty": 0.0,
-        "Direction": "Long",
-        "DateIn": "",
-        "PriceIn": 0.00,
-        "Commission": 0.00,
-        "DateOut": "",
-        "PriceOut": 0.00,
-        "CommissionOut": 0.00
-      }
-    ],
-    "Invested": 0.00,
-    "DivAmnt": 0.00
-  }
-}
-```
+See [`portfolio-template.json`](portfolio-template.json) for the blank DCA planner profile and complete real-position examples covering a partially reduced long, a partially covered short, and a fully closed long. The example aggregate `Qty`, `Invested`, `Positions[0].AvgPrice`, and `DivAmnt` values are consistent with the recorded trades.
 
 ---
 
 ## ⚙️ Maintenance & System Validation Constraints
 
-1. **JSON Object Separators**: When inserting multiple ticker entries, a trailing comma **must** follow the closing curly brace (`}`) of the preceding ticker entry node block object.
-2. **Sequential Array Nesting**: Individual trades logged inside the `Trades` brackets array line map framework `[ ... ]` must be organized sequentially and separated with commas.
-3. **Boolean Syntax Requirements**: The layout parameter tracking element flag field `"On"` requires native JSON runtime system literal notations typed in exact lowercase (`true` or `false`) without quote marks.
+1. **Valid JSON**: Separate object members and array elements with commas, but do not add a trailing comma after the final member or element. Validate edited portfolio data with a JSON parser.
+2. **Trade Order**: Preserve execution order in `Trades`; the positions page processes append-only executions in array order.
+3. **Boolean Values**: Legacy and DCA planner `On` fields, when present, must use JSON booleans `true` or `false`, not quoted strings. New append-only real-position rows omit `On`.

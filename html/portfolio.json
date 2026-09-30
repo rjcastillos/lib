@@ -109,7 +109,7 @@
     "Price": 0,
     "Periodicity": "Q",
     "Qty": 7,
-    "NextExDate": "11/19/2026",
+    "NextExDate": "2026-11-19",
     "Positions": [
       {
         "Direction": "Long",

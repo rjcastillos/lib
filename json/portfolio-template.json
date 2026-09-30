@@ -6,7 +6,7 @@
     "Price": 0.00,
     "Periodicity": "M",
     "Qty": 0,
-    "NextExDate": "",
+    "NextExDate": "2026-11-19",
     "Positions": [
       {
         "Direction": "Long",
@@ -30,5 +30,113 @@
     ],
     "Invested": 0.00,
     "DivAmnt": 0.00
+  },
+  "LONGEXAMPLE": {
+    "name": "Example long position with partial reduction (LONGEXAMPLE)",
+    "Ticker": "LONGEXAMPLE",
+    "Div": 0.12,
+    "Price": 120.00,
+    "Periodicity": "M",
+    "Qty": 6,
+    "NextExDate": "2026-11-19",
+    "Positions": [
+      {
+        "Direction": "Long",
+        "Size": 6,
+        "AvgPrice": 100.10
+      }
+    ],
+    "Trades": [
+      {
+        "Action": "Buy",
+        "Strategy": "LongtimeInvestment",
+        "Qty": 10,
+        "Date": "2026-09-28",
+        "Price": 100.00,
+        "Commission": 1.00
+      },
+      {
+        "Action": "Sell",
+        "Strategy": "Daytrade",
+        "Qty": 4,
+        "Date": "2026-09-29",
+        "Price": 120.00,
+        "Commission": 0.50
+      }
+    ],
+    "Invested": 600.60,
+    "DivAmnt": 0.72
+  },
+  "SHORTEXAMPLE": {
+    "name": "Example short position with partial cover (SHORTEXAMPLE)",
+    "Ticker": "SHORTEXAMPLE",
+    "Div": 0,
+    "Price": 80.00,
+    "Periodicity": "M",
+    "Qty": 6,
+    "NextExDate": "",
+    "Positions": [
+      {
+        "Direction": "Short",
+        "Size": 6,
+        "AvgPrice": 99.90
+      }
+    ],
+    "Trades": [
+      {
+        "Action": "Sell",
+        "Strategy": "SniperNine",
+        "Qty": 10,
+        "Date": "2026-09-28",
+        "Price": 100.00,
+        "Commission": 1.00
+      },
+      {
+        "Action": "Buy",
+        "Strategy": "Daytrade",
+        "Qty": 4,
+        "Date": "2026-09-29",
+        "Price": 80.00,
+        "Commission": 0.50
+      }
+    ],
+    "Invested": 599.40,
+    "DivAmnt": 0
+  },
+  "CLOSEDEXAMPLE": {
+    "name": "Example fully closed long position (CLOSEDEXAMPLE)",
+    "Ticker": "CLOSEDEXAMPLE",
+    "Div": 0,
+    "Price": 12.00,
+    "Periodicity": "M",
+    "Qty": 0,
+    "NextExDate": "",
+    "Positions": [
+      {
+        "Direction": "Long",
+        "Size": 0,
+        "AvgPrice": 0
+      }
+    ],
+    "Trades": [
+      {
+        "Action": "Buy",
+        "Strategy": "LongtimeInvestment",
+        "Qty": 2,
+        "Date": "2026-09-28",
+        "Price": 10.00,
+        "Commission": 0.20
+      },
+      {
+        "Action": "Sell",
+        "Strategy": "SniperNine",
+        "Qty": 2,
+        "Date": "2026-09-29",
+        "Price": 12.00,
+        "Commission": 0.10
+      }
+    ],
+    "Invested": 0,
+    "DivAmnt": 0
   }
 }
