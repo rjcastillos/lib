@@ -22,7 +22,7 @@ The root JSON object is keyed by ticker symbol. Each value contains asset metada
 * **`NextExDate`** *(String)*: Next ex-dividend date. The positions page displays valid compact dates in `YYYYMMDD` format; other formats are currently hidden.
 
 ### Complex Layout Components
-* **`Positions`** *(Array of Objects)*: Derived position summary. The positions page writes one entry with `Direction` (`Long` or `Short`), open `Size`, and `AvgPrice`. `AvgPrice` is average-cost basis per open unit, including opening commissions for longs and net of opening commissions for shorts. It is zero when flat.
+* **`Positions`** *(Array of Objects)*: Derived position summary. The positions page writes one entry with `Direction` (`Long` or `Short`), open `Size`, and `AvgPrice`. For append-only executions, `AvgPrice` is the remaining FIFO basis divided by open quantity, including opening commissions for longs and net of opening commissions for shorts. It can change after a reduction and is zero when flat.
 
 ### Trade Record Formats
 
@@ -38,7 +38,7 @@ Older real-position portfolios use `On`, `Direction`, `DateIn`, `PriceIn`, `Comm
 
 #### Append-Only Real-Position Execution
 
-New real-position trades append one row per executed buy or sell and never rewrite earlier executions:
+New real-position trades append one row per executed buy or sell and never rewrite earlier executions. They are processed in `Trades` array order, which defines FIFO order:
 
 | Field | Format and meaning |
 | --- | --- |
@@ -49,10 +49,10 @@ New real-position trades append one row per executed buy or sell and never rewri
 | `Price` | Required nonnegative execution price per unit. |
 | `Commission` | Nonnegative fee for this execution; defaults to zero if omitted by an imported row. |
 
-New execution rows do not have `On`, `Direction`, `DateIn`, `PriceIn`, `DateOut`, or `PriceOut`. Direction is inferred by processing the executions in order: a buy increases long quantity or covers a short; a sell increases short quantity or reduces a long. A single execution cannot reverse an open position; close it first.
+New execution rows do not have `On`, `Direction`, `DateIn`, `PriceIn`, `DateOut`, or `PriceOut`. Direction is inferred by processing the executions in order: a buy increases long quantity or covers a short; a sell increases short quantity or reduces a long. Reductions consume the oldest open lot first, including part of a lot or quantities spanning multiple lots. A single execution cannot reverse an open position; close it first. Do not combine new execution rows with open legacy lot-shaped rows on the same ticker.
 
 ### Aggregates
-* **`Invested`** *(Number)*: Average-cost basis for the open quantity. For longs, acquisition cost plus opening commissions less basis released by sales. For shorts, net opening sale proceeds less basis released by covers. Closing commissions affect realized P&L, not remaining basis.
+* **`Invested`** *(Number)*: FIFO basis of the remaining open quantity. For longs, sum the acquisition cost and remaining allocated entry commission for open lots. For shorts, sum net opening sale proceeds after remaining allocated entry commissions. A sale or cover releases basis from the oldest lot(s); closing commissions affect realized P&L, not remaining basis.
 * **`DivAmnt`** *(Number)*: Gross dividend amount for one payout cycle, calculated as `Qty * Div`. It is not annualized. Derive an annual projection separately as `DivAmnt * payouts per year` using `Periodicity`.
 
 ### Dividend Amount Example

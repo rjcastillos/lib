@@ -52,6 +52,15 @@ function exportJSONFile() {
         setStatus("Load or create a portfolio before exporting.", true);
         return;
     }
+    try {
+        Object.entries(portfolioData).forEach(([ticker, asset]) => {
+            if (ticker.startsWith(".") || assetHasLegacyPlannerRows(asset)) return;
+            PositionCore.syncSummary(asset);
+        });
+    } catch (error) {
+        setStatus(`Portfolio was not exported: ${error.message}`, true);
+        return;
+    }
     const blob = new Blob([JSON.stringify(portfolioData, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");

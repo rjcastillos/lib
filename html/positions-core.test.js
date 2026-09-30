@@ -58,7 +58,7 @@ test("reduces a long position with a new immutable sell execution", () => {
 
     assertClose(result.realizedPnl, 79.1);
     assert.equal(result.summary.quantity, 6);
-    assert.equal(result.summary.invested, 600.6);
+    assertClose(result.summary.invested, 600.6);
     assertClose(result.summary.averagePrice, 100.1);
     assert.deepEqual(result.asset.Trades[0], purchase);
     assert.equal(result.asset.Trades.length, 2);
@@ -83,7 +83,7 @@ test("covers a short position with a new immutable buy execution", () => {
 
     assertClose(result.realizedPnl, 79.1);
     assert.equal(result.summary.quantity, 6);
-    assert.equal(result.summary.invested, 599.4);
+    assertClose(result.summary.invested, 599.4);
     assertClose(result.summary.averagePrice, 99.9);
     assert.equal(result.asset.Trades.length, 2);
     assert.equal(result.asset.Trades[1].Action, "Buy");
@@ -115,6 +115,79 @@ test("rejects a reduce quantity greater than the aggregate position", () => {
     }), /exceeds the open position/);
 });
 
+test("uses FIFO when one long sale spans lots with unmatched quantities", () => {
+    let asset = openLot(longAsset, "Long", 2, 10, 2);
+    asset = openLot(asset, "Long", 3, 20, 3);
+    const originalTrades = structuredClone(asset.Trades);
+
+    const result = PositionCore.closePosition(asset, "EXM", {
+        price: 25,
+        commissionOut: 1.5,
+        dateOut: "2026-09-29",
+        quantity: 3
+    });
+
+    assertClose(result.realizedPnl, 30.5);
+    assert.equal(result.summary.quantity, 2);
+    assert.equal(result.summary.invested, 42);
+    assert.equal(result.summary.averagePrice, 21);
+    assert.deepEqual(result.asset.Trades.slice(0, 2), originalTrades);
+});
+
+test("uses FIFO when a short cover spans opening sale lots", () => {
+    let asset = openLot(longAsset, "Short", 2, 100, 2);
+    asset = openLot(asset, "Short", 3, 80, 3);
+
+    const result = PositionCore.closePosition(asset, "EXM", {
+        price: 70,
+        commissionOut: 1,
+        dateOut: "2026-09-29",
+        quantity: 3
+    });
+
+    assertClose(result.realizedPnl, 66);
+    assert.equal(result.summary.quantity, 2);
+    assert.equal(result.summary.invested, 158);
+    assert.equal(result.summary.averagePrice, 79);
+});
+
+test("matches the MSFT FIFO basis after three one-share reductions", () => {
+    const asset = {
+        Positions: [{ Direction: "Long", Size: 0, AvgPrice: 0 }],
+        Trades: [
+            { Action: "Buy", Strategy: "LongtimeInvestment", Qty: 1, Date: "2026-06-03", Price: 429.50, Commission: 1 },
+            { Action: "Buy", Strategy: "LongtimeInvestment", Qty: 1, Date: "2026-06-05", Price: 423.08, Commission: 1 },
+            { Action: "Buy", Strategy: "LongtimeInvestment", Qty: 1, Date: "2026-06-05", Price: 416.25, Commission: 1 },
+            { Action: "Buy", Strategy: "LongtimeInvestment", Qty: 1, Date: "2026-06-11", Price: 384.56, Commission: 1 },
+            { Action: "Buy", Strategy: "LongtimeInvestment", Qty: 1, Date: "2026-06-17", Price: 378.77, Commission: 1 },
+            { Action: "Buy", Strategy: "LongtimeInvestment", Qty: 1, Date: "2026-06-22", Price: 367.79, Commission: 1 },
+            { Action: "Buy", Strategy: "LongtimeInvestment", Qty: 1, Date: "2026-06-24", Price: 368.38, Commission: 1 },
+            { Action: "Sell", Strategy: "SniperNine", Qty: 1, Date: "2026-07-30", Price: 447.91, Commission: 1 },
+            { Action: "Sell", Strategy: "SniperNine", Qty: 1, Date: "2026-08-03", Price: 478.00, Commission: 1 },
+            { Action: "Sell", Strategy: "SniperNine", Qty: 1, Date: "2026-08-31", Price: 511.41, Commission: 1 }
+        ]
+    };
+
+    const summary = PositionCore.summarize(asset);
+
+    assert.equal(summary.quantity, 4);
+    assert.equal(summary.invested, 1503.5);
+    assert.equal(summary.averagePrice, 375.875);
+    assertClose(summary.realizedPnl, 162.49);
+});
+
+test("rejects execution-ledger reversals and ambiguous open legacy mixing", () => {
+    assert.throws(() => PositionCore.summarize({ Trades: [
+        { Action: "Buy", Strategy: "SniperNine", Qty: 2, Date: "2026-09-28", Price: 10, Commission: 0 },
+        { Action: "Sell", Strategy: "Daytrade", Qty: 3, Date: "2026-09-29", Price: 11, Commission: 0 }
+    ] }), /cannot reverse a position/);
+
+    assert.throws(() => PositionCore.summarize({ Trades: [
+        { On: true, Strategy: "SniperNine", Qty: 1, Direction: "Long", DateIn: "2026-09-28", PriceIn: 10, Commission: 0 },
+        { Action: "Buy", Strategy: "Daytrade", Qty: 1, Date: "2026-09-29", Price: 11, Commission: 0 }
+    ] }), /Migrate open legacy lots/);
+});
+
 test("matches the issue example while preserving every purchase execution", () => {
     let asset = openLot(longAsset, "Long", 5, 407.43);
     asset = openLot(asset, "Long", 1, 367.79, 1);
@@ -133,10 +206,10 @@ test("matches the issue example while preserving every purchase execution", () =
     assert.deepEqual(result.asset.Trades.slice(0, 3), purchases);
     assert.equal(result.asset.Trades[3].Action, "Sell");
     assert.equal(result.asset.Trades[3].Qty, 2);
-    assertClose(result.realizedPnl, -38.928571428571445);
+    assertClose(result.realizedPnl, -60.84);
     assert.equal(result.summary.quantity, 5);
-    assertClose(result.summary.invested, 1982.3714285714286);
-    assertClose(result.summary.averagePrice, 396.4742857142857);
+    assertClose(result.summary.invested, 1960.46);
+    assertClose(result.summary.averagePrice, 392.092);
 });
 
 test("accepts legacy trades without CommissionOut and validates imported structure", () => {

@@ -42,7 +42,7 @@ The checked-in AGNC fixture provides an end-to-end formula example for the asset
 
 - The current formula set does not model sells, short positions, realized/unrealized profit and loss, tax lots, fees beyond commission, currency conversion, stock splits, corporate actions, dividend reinvestment, or changing/future dividend declarations.
 - In the existing DCA calculator, trade fields such as `DateOut`, `PriceOut`, and `Direction` do not implement closed or short position calculations. Do not infer those behaviors from that calculator.
-- The separate portfolio-update spec defines direction-specific basis, partial-close lot splitting, entry/exit commission allocation, and realized P&L for the new positions page. Do not apply those rules to the existing DCA calculator.
+- The separate portfolio-update spec defines append-only executions, FIFO basis release across open lots, entry/exit commission treatment, and realized P&L for the positions page. Legacy lot-shaped records remain readable. Do not apply those rules to the existing DCA calculator.
 - DCA here means sequential cost-basis tranches in a ledger; it does not implement a scheduled contribution calendar or forecast purchase prices.
 - Dividend and yield outputs are gross projections based on the entered per-period dividend. Do not imply a guaranteed payment or return.
 - Preserve transaction dates and source values when saving calculations unless the user has explicitly defined a mutation rule.

@@ -127,26 +127,34 @@ New real-position trades are immutable execution records. Each purchase or sale 
 
 Legacy rows using `On`, `Direction`, `DateIn`, `PriceIn`, `DateOut`, and `PriceOut` remain readable. New execution rows do not use `On`; the flag remains a planner-row inclusion toggle and a legacy position field.
 
-`Qty` is the absolute net open quantity and `Positions[0].Direction` is its side. `Invested` is open average-cost basis: for a long it is acquisition cost plus opening commissions; for a short it is opening sale proceeds less opening commissions. `Positions[0].AvgPrice` is `Invested / Qty` while open and zero when flat. Closing proceeds and closing commissions do not reduce `Invested`; the basis released is the closed quantity multiplied by the current average basis per unit.
+`Qty` is the absolute net open quantity and `Positions[0].Direction` is its side. New `Action` execution rows use FIFO basis: process `Trades` in array order and reduce the oldest remaining opening execution first. For a long lot, unit basis is `Price + Commission / Qty`; for a short lot, unit basis is `Price - Commission / Qty`. If a reduction closes only part of a lot, the remaining quantity keeps the same unit basis and its opening commission is allocated in proportion to quantity. Do not edit the original execution row.
 
-| Execution | Position effect | Open `Invested` update |
+`Invested` is the sum of the basis of all remaining FIFO lot quantities. For long positions it is acquisition cost plus the remaining allocated opening commissions; for shorts it is opening sale proceeds less the remaining allocated opening commissions. `Positions[0].AvgPrice` is `Invested / Qty` while open and zero when flat. Since FIFO may remove higher- or lower-cost lots first, average basis can change after a reduction. Closing proceeds and closing commissions do not reduce `Invested`.
+
+| Execution | Position effect | `Invested` update |
 | --- | --- | --- |
-| Buy while flat/long | Open or increase long | `Invested += q * Price + Commission` |
-| Sell while long | Reduce/close long | Subtract `q * current AvgPrice` |
-| Sell while flat/short | Open or increase short | `Invested += q * Price - Commission` |
-| Buy while short | Reduce/close short | Subtract `q * current AvgPrice` |
+| Buy while flat/long | Open a long FIFO lot | Add `q * Price + Commission` |
+| Sell while long | Reduce/close oldest long lots | Subtract the FIFO basis released from those lots |
+| Sell while flat/short | Open a short FIFO lot | Add `q * Price - Commission` |
+| Buy while short | Cover oldest short lots | Subtract the FIFO proceeds basis released from those lots |
 
-For a long reduction, realized P&L is `q * Price - Commission - q * current AvgPrice`. For a short cover, it is `q * current AvgPrice - q * Price - Commission`. Thus the execution commission is included in basis when opening and charged to realized P&L when reducing. Calculations retain full precision; display formatting may round values.
+For a long sale, realized P&L is `q * sale Price - sale Commission - FIFO basis released`. For a short cover, it is `FIFO proceeds basis released - q * cover Price - cover Commission`. An exit commission is charged once to that execution's realized P&L and is not added to or subtracted from the remaining lots. Calculations retain full precision; the UI rounds for display using standard currency formatting.
 
-The reduce form accepts a quantity up to the aggregate open quantity. A blank quantity with the full-close action closes the complete position. Both actions append exactly one execution. After the position reaches zero, an execution may open either direction.
+The reduce form accepts any positive quantity up to the aggregate open quantity; it does not need to match a purchase quantity. One sale or cover may consume several FIFO lots. A quantity greater than the open position is rejected rather than reversing direction. A blank quantity with the full-close action closes the complete position. Both actions append exactly one execution. After the position reaches zero, an execution may open either direction.
+
+FIFO uses the order of rows in `Trades` as the execution order; preserve that order when importing or editing a portfolio. Trades with the same date retain their array order. New append-only executions must not be mixed with open legacy lot-shaped rows for the same ticker; migrate the legacy open quantity before appending execution rows. Closed legacy rows can remain in history.
 
 ### Worked Examples
 
-**Issue #2, MSFT:** Buy 5 at `$407.43` with no commission, 1 at `$367.79` with `$1` commission, and 1 at `$368.38` with `$1` commission. These executions total `$2,775.32` basis across 7 shares, so the average basis is `$396.4742857` (displayed `$396.47`). Selling 2 at `$377.01` with no commission appends one sell record; realized P&L is `-$38.9285714`, and 5 shares remain with `$1,982.3714286` invested at the same average basis.
+**Issue #2, MSFT:** Buy 5 at `$407.43` with no commission, 1 at `$367.79` with `$1` commission, and 1 at `$368.38` with `$1` commission. Selling 2 at `$377.01` consumes 2 shares from the first buy lot. FIFO basis released is `$814.86`, realized P&L is `-$60.84`, and 5 shares remain with `$1,960.46` invested at `$392.092` average basis.
 
-**Long:** Buy 10 units at `$100` with `$1` commission. Sell 4 at `$120` with `$0.50` commission. The sale releases `$400.40` of average-cost basis, realizes `$79.10`, and leaves 6 units with `$600.60` invested at `$100.10` average basis.
+**MSFT after three reductions:** The seven opening buys have total basis `$2,775.33`. The three one-share sells consume the first three buys, whose bases are `$430.50`, `$424.08`, and `$417.25`. The remaining four lots have basis `$1,503.50`; therefore `AvgPrice = $1,503.50 / 4 = $375.875`, displayed as `$375.88` with normal two-decimal currency rounding. Realized P&L across the three sells is `$162.49`.
 
-**Short:** Sell short 10 units at `$100` with `$1` commission. Buy to cover 4 at `$80` with `$0.50` commission. The cover releases `$399.60` of average-cost proceeds basis, realizes `$79.10`, and leaves 6 units with `$599.40` invested at `$99.90` average basis.
+**A reduction spanning unmatched lots:** Buy 2 units at `$10` with `$2` entry commission, then buy 3 units at `$20` with `$3` entry commission. Sell 3 at `$25` with `$1` exit commission. FIFO closes the first 2-unit lot (basis `$22`) and 1 unit from the second lot (basis `$21`). The sale releases `$43` basis and realizes `$31`; 2 units remain from the second lot with `$42` invested and `$21` average basis. The sale quantity need not match either opening quantity.
+
+**Long:** Buy 10 units at `$100` with `$1` commission. Sell 4 at `$120` with `$0.50` commission. The sale releases `$400.40` of FIFO lot basis, realizes `$79.10`, and leaves 6 units with `$600.60` invested at `$100.10` average basis.
+
+**Short:** Sell short 10 units at `$100` with `$1` commission. Buy to cover 4 at `$80` with `$0.50` commission. The cover releases `$399.60` of FIFO short-lot basis, realizes `$79.10`, and leaves 6 units with `$599.40` invested at `$99.90` average basis.
 
 See [TODO.md](TODO.md) for features intentionally deferred from the first release.
 

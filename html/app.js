@@ -1,3 +1,4 @@
+const PositionCore = window.PositionCore;
 let portfolioData = {};
 let currentTicker = "";
 let renderedTicker = "";
@@ -67,6 +68,16 @@ function exportJSONFile() {
     saveCurrentViewToData();
     if (Object.keys(portfolioData).length === 0) {
         showStatus("Load or create a portfolio before exporting.", true);
+        return;
+    }
+    try {
+        Object.entries(portfolioData).forEach(([ticker, asset]) => {
+                if (!isPlannerTicker(ticker) && !(asset.Trades || []).some(trade => trade.Strategy === "DCA_Planner")) {
+                    PositionCore.syncSummary(asset);
+                }
+        });
+    } catch (error) {
+        showStatus(`Portfolio was not exported: ${error.message}`, true);
         return;
     }
     const blob = new Blob([JSON.stringify(portfolioData, null, 2)], { type: "application/json" });
@@ -161,8 +172,9 @@ function switchAsset() {
         });
         if (tbody.children.length === 0) addTrancheRow(true, 0, 0, 0, "planner");
     } else if (trades.some(trade => trade.Action === "Buy" || trade.Action === "Sell")) {
-        const openQuantity = Number(asset.Qty) || 0;
-        const averageBasis = Number(asset.Positions?.[0]?.AvgPrice) || 0;
+        const summary = PositionCore.summarize(asset);
+        const openQuantity = summary.quantity;
+        const averageBasis = summary.averagePrice;
         if (openQuantity > 0) addTrancheRow(true, openQuantity, averageBasis, 0, "position");
     } else {
         trades.forEach(trade => {
@@ -228,7 +240,9 @@ function saveCurrentViewToData(ticker = currentTicker) {
         + (Number(row.querySelector(".row-comm").value) || 0), 0);
 
     if (!isPlannerTicker(ticker)) {
-        asset.DivAmnt = (Number(asset.Qty) || 0) * (Number(asset.Div) || 0);
+            if (!(asset.Trades || []).some(trade => trade.Strategy === "DCA_Planner")) {
+                PositionCore.syncSummary(asset);
+            }
         return;
     }
 

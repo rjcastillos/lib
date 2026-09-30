@@ -108,13 +108,13 @@
     "Div": 0.98,
     "Price": 0,
     "Periodicity": "Q",
-    "Qty": 7,
+    "Qty": 4,
     "NextExDate": "2026-11-19",
     "Positions": [
       {
         "Direction": "Long",
-        "Size": 7,
-        "AvgPrice": 396.4757142857143
+        "Size": 4,
+        "AvgPrice": 375.875
       }
     ],
     "Trades": [
@@ -173,9 +173,33 @@
         "Date": "2026-06-24",
         "Price": 368.38,
         "Commission": 1
+      },
+      {
+        "Action": "Sell",
+        "Strategy": "SniperNine",
+        "Qty": 1,
+        "Date": "2026-07-30",
+        "Price": 447.91,
+        "Commission": 1
+      },
+      {
+        "Action": "Sell",
+        "Strategy": "SniperNine",
+        "Qty": 1,
+        "Date": "2026-08-03",
+        "Price": 478,
+        "Commission": 1
+      },
+      {
+        "Action": "Sell",
+        "Strategy": "SniperNine",
+        "Qty": 1,
+        "Date": "2026-08-31",
+        "Price": 511.41,
+        "Commission": 1
       }
     ],
-    "Invested": 2775.33,
-    "DivAmnt": 6.859999999999999
+    "Invested": 1503.5,
+    "DivAmnt": 3.92
   }
 }

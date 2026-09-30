@@ -1,7 +1,7 @@
 # Append-Only Position Executions
 
 - Date: 2026-09-30
-- Status: Accepted
+- Status: Superseded by decision 0004
 - Scope: Real-position accounting in the browser portfolio tools
 - Related issue: GitHub issue #2
 
