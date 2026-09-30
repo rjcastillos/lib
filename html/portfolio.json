@@ -1,205 +1,21 @@
 {
-  ".AGNC": {
-    "name": "AGNC Investment Corp. (.AGNC)",
-    "Ticker": "AGNC",
-    "Div": 0.12,
-    "Price": 9.4,
-    "Periodicity": "M",
-    "Qty": 200,
-    "NextExDate": "20261015",
-    "Positions": [
-      {
-        "Direction": "Long",
-        "Size": 200,
-        "AvgPrice": 9.5
-      }
-    ],
-    "Trades": [
-      {
-        "On": true,
-        "Strategy": "DCA_Planner",
-        "Qty": 100,
-        "Direction": "Long",
-        "DateIn": "2026-09-28",
-        "PriceIn": 9.68,
-        "Commission": 1,
-        "DateOut": "",
-        "PriceOut": 0,
-        "CommissionOut": 0
-      },
-      {
-        "On": true,
-        "Strategy": "DCA_Planner",
-        "Qty": 100,
-        "Direction": "Long",
-        "DateIn": "2026-09-28",
-        "PriceIn": 9.3,
-        "Commission": 1,
-        "DateOut": "",
-        "PriceOut": 0,
-        "CommissionOut": 0
-      },
-      {
-        "On": false,
-        "Strategy": "DCA_Planner",
-        "Qty": 0,
-        "Direction": "Long",
-        "DateIn": "2026-09-28",
-        "PriceIn": 0,
-        "Commission": 0,
-        "DateOut": "",
-        "PriceOut": 0,
-        "CommissionOut": 0
-      }
-    ],
-    "Invested": 1900,
-    "DivAmnt": 24
-  },
-  "GLAD": {
-    "name": "Gladstone Capital Corporation (.GLAD)",
-    "Ticker": "GLAD",
-    "Div": 0.15,
-    "Price": 0,
-    "Periodicity": "M",
-    "Qty": 136,
-    "NextExDate": "",
-    "Positions": [],
-    "Trades": [
-      {
-        "On": true,
-        "Strategy": "LongtimeInvestment",
-        "Qty": 34,
-        "Direction": "Long",
-        "DateIn": "2026-09-28",
-        "PriceIn": 19.93,
-        "Commission": 1,
-        "DateOut": "",
-        "PriceOut": 0
-      },
-      {
-        "On": true,
-        "Strategy": "LongtimeInvestment",
-        "Qty": 34,
-        "Direction": "Long",
-        "DateIn": "2026-09-28",
-        "PriceIn": 19.66,
-        "Commission": 1,
-        "DateOut": "",
-        "PriceOut": 0
-      },
-      {
-        "On": true,
-        "Strategy": "LongtimeInvestment",
-        "Qty": 68,
-        "Direction": "Long",
-        "DateIn": "2026-09-28",
-        "PriceIn": 19.24,
-        "Commission": 1,
-        "DateOut": "",
-        "PriceOut": 0
-      }
-    ],
-    "Invested": 2657.38,
-    "DivAmnt": 20.4
-  },
-  "MSFT": {
-    "name": "Microsoft Corporation (MSFT)",
-    "Ticker": "MSFT",
-    "Div": 0.98,
+  "APPL": {
+    "name": "Apple Inc. (AAPL)",
+    "Ticker": "APPL",
+    "Div": 0.09,
     "Price": 0,
     "Periodicity": "Q",
-    "Qty": 4,
-    "NextExDate": "2026-11-19",
+    "Qty": 0,
+    "NextExDate": "2026-08-10",
     "Positions": [
       {
         "Direction": "Long",
-        "Size": 4,
-        "AvgPrice": 375.875
+        "Size": 0,
+        "AvgPrice": 0
       }
     ],
-    "Trades": [
-      {
-        "Action": "Buy",
-        "Strategy": "LongtimeInvestment",
-        "Qty": 1,
-        "Date": "2026-06-03",
-        "Price": 429.5,
-        "Commission": 1
-      },
-      {
-        "Action": "Buy",
-        "Strategy": "LongtimeInvestment",
-        "Qty": 1,
-        "Date": "2026-06-05",
-        "Price": 423.08,
-        "Commission": 1
-      },
-      {
-        "Action": "Buy",
-        "Strategy": "LongtimeInvestment",
-        "Qty": 1,
-        "Date": "2026-06-05",
-        "Price": 416.25,
-        "Commission": 1
-      },
-      {
-        "Action": "Buy",
-        "Strategy": "LongtimeInvestment",
-        "Qty": 1,
-        "Date": "2026-06-11",
-        "Price": 384.56,
-        "Commission": 1
-      },
-      {
-        "Action": "Buy",
-        "Strategy": "LongtimeInvestment",
-        "Qty": 1,
-        "Date": "2026-06-17",
-        "Price": 378.77,
-        "Commission": 1
-      },
-      {
-        "Action": "Buy",
-        "Strategy": "LongtimeInvestment",
-        "Qty": 1,
-        "Date": "2026-06-22",
-        "Price": 367.79,
-        "Commission": 1
-      },
-      {
-        "Action": "Buy",
-        "Strategy": "LongtimeInvestment",
-        "Qty": 1,
-        "Date": "2026-06-24",
-        "Price": 368.38,
-        "Commission": 1
-      },
-      {
-        "Action": "Sell",
-        "Strategy": "SniperNine",
-        "Qty": 1,
-        "Date": "2026-07-30",
-        "Price": 447.91,
-        "Commission": 1
-      },
-      {
-        "Action": "Sell",
-        "Strategy": "SniperNine",
-        "Qty": 1,
-        "Date": "2026-08-03",
-        "Price": 478,
-        "Commission": 1
-      },
-      {
-        "Action": "Sell",
-        "Strategy": "SniperNine",
-        "Qty": 1,
-        "Date": "2026-08-31",
-        "Price": 511.41,
-        "Commission": 1
-      }
-    ],
-    "Invested": 1503.5,
-    "DivAmnt": 3.92
+    "Trades": [],
+    "Invested": 0,
+    "DivAmnt": 0
   }
 }
