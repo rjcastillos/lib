@@ -25,10 +25,16 @@ function validatePortfolio(data) {
             if (trade.On !== undefined && typeof trade.On !== "boolean") {
                 throw new Error(`${ticker}.Trades[${index}].On must be a boolean.`);
             }
-            for (const field of ["Qty", "PriceIn", "Commission"]) {
+            if (trade.Action !== undefined && !["Buy", "Sell"].includes(trade.Action)) {
+                throw new Error(`${ticker}.Trades[${index}].Action must be Buy or Sell.`);
+            }
+            for (const field of ["Qty", "PriceIn", "Price", "Commission"]) {
                 if (trade[field] !== undefined && trade[field] !== "" && !Number.isFinite(Number(trade[field]))) {
                     throw new Error(`${ticker}.Trades[${index}].${field} must be numeric.`);
                 }
+            }
+            if (trade.Action && !/^\d{4}-\d{2}-\d{2}$/.test(trade.Date || "")) {
+                throw new Error(`${ticker}.Trades[${index}].Date must use YYYY-MM-DD.`);
             }
         }
     }
@@ -154,6 +160,10 @@ function switchAsset() {
                 Number(trade.Commission) || 0, "planner", index);
         });
         if (tbody.children.length === 0) addTrancheRow(true, 0, 0, 0, "planner");
+    } else if (trades.some(trade => trade.Action === "Buy" || trade.Action === "Sell")) {
+        const openQuantity = Number(asset.Qty) || 0;
+        const averageBasis = Number(asset.Positions?.[0]?.AvgPrice) || 0;
+        if (openQuantity > 0) addTrancheRow(true, openQuantity, averageBasis, 0, "position");
     } else {
         trades.forEach(trade => {
             if (trade.On !== true || trade.Strategy === "DCA_Planner") return;

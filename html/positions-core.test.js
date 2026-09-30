@@ -46,82 +46,97 @@ test("rejects an opposite-direction open while a position remains open", () => {
     );
 });
 
-test("partially closes a long lot and allocates both commissions", () => {
+test("reduces a long position with a new immutable sell execution", () => {
     const asset = openLot(longAsset, "Long", 10, 100, 1);
+    const purchase = structuredClone(asset.Trades[0]);
     const result = PositionCore.closePosition(asset, "EXM", {
         price: 120,
         commissionOut: 0.5,
         dateOut: "2026-09-29",
-        selections: [{ index: 0, quantity: 4 }]
+        quantity: 4
     });
 
     assertClose(result.realizedPnl, 79.1);
     assert.equal(result.summary.quantity, 6);
     assert.equal(result.summary.invested, 600.6);
     assertClose(result.summary.averagePrice, 100.1);
-    assert.equal(result.asset.Trades[0].On, false);
-    assert.equal(result.asset.Trades[0].Commission, 0.4);
-    assert.equal(result.asset.Trades[0].CommissionOut, 0.5);
-    assert.equal(result.asset.Trades[1].On, true);
-    assert.equal(result.asset.Trades[1].Commission, 0.6);
+    assert.deepEqual(result.asset.Trades[0], purchase);
+    assert.equal(result.asset.Trades.length, 2);
+    assert.deepEqual(result.asset.Trades[1], {
+        Action: "Sell",
+        Strategy: "SniperNine",
+        Qty: 4,
+        Date: "2026-09-29",
+        Price: 120,
+        Commission: 0.5
+    });
 });
 
-test("partially covers a short lot and computes realized profit", () => {
+test("covers a short position with a new immutable buy execution", () => {
     const asset = openLot(longAsset, "Short", 10, 100, 1);
     const result = PositionCore.closePosition(asset, "EXM", {
         price: 80,
         commissionOut: 0.5,
         dateOut: "2026-09-29",
-        selections: [{ index: 0, quantity: 4 }]
+        quantity: 4
     });
 
     assertClose(result.realizedPnl, 79.1);
     assert.equal(result.summary.quantity, 6);
     assert.equal(result.summary.invested, 599.4);
     assertClose(result.summary.averagePrice, 99.9);
+    assert.equal(result.asset.Trades.length, 2);
+    assert.equal(result.asset.Trades[1].Action, "Buy");
 });
 
-test("full close clears the open summary and permits a new direction", () => {
+test("full close defaults to the full quantity and permits a new direction", () => {
     const asset = openLot(longAsset, "Long", 2, 10, 0.2);
     const closed = PositionCore.closePosition(asset, "EXM", {
         price: 12,
         commissionOut: 0.1,
-        dateOut: "2026-09-29",
-        selections: [{ index: 0, quantity: 2 }]
+        dateOut: "2026-09-29"
     });
 
     assert.equal(closed.summary.quantity, 0);
     assert.equal(closed.summary.invested, 0);
-    assert.equal(closed.asset.Trades[0].On, false);
+    assert.equal(closed.asset.Trades.length, 2);
+    assert.equal(closed.asset.Trades[1].Qty, 2);
     const reopened = openLot(closed.asset, "Short", 1, 12);
     assert.equal(reopened.Positions[0].Direction, "Short");
 });
 
-test("rejects closing more than the selected lot quantity", () => {
+test("rejects a reduce quantity greater than the aggregate position", () => {
     const asset = openLot(longAsset, "Long", 2, 10);
     assert.throws(() => PositionCore.closePosition(asset, "EXM", {
         price: 12,
         commissionOut: 0,
         dateOut: "2026-09-29",
-        selections: [{ index: 0, quantity: 3 }]
-    }), /no greater than the selected lot quantity/);
+        quantity: 3
+    }), /exceeds the open position/);
 });
 
-test("conserves a close commission split across several lots", () => {
-    let asset = longAsset;
-    for (let index = 0; index < 4; index += 1) {
-        asset = openLot(asset, "Long", 1, 10);
-    }
+test("matches the issue example while preserving every purchase execution", () => {
+    let asset = openLot(longAsset, "Long", 5, 407.43);
+    asset = openLot(asset, "Long", 1, 367.79, 1);
+    asset = openLot(asset, "Long", 1, 368.38, 1);
+    assertClose(asset.Positions[0].AvgPrice, 396.4742857142857);
+    const purchases = structuredClone(asset.Trades);
+
     const result = PositionCore.closePosition(asset, "EXM", {
-        price: 11,
-        commissionOut: 0.02,
+        price: 377.01,
+        commissionOut: 0,
         dateOut: "2026-09-29",
-        selections: [0, 1, 2, 3].map(index => ({ index, quantity: 1 }))
+        quantity: 2
     });
 
-    const allocatedFees = result.closedLots.reduce((total, lot) => total + lot.CommissionOut, 0);
-    assertClose(allocatedFees, 0.02);
-    assert.ok(result.closedLots.every(lot => lot.CommissionOut >= 0));
+    assert.equal(result.asset.Trades.length, 4);
+    assert.deepEqual(result.asset.Trades.slice(0, 3), purchases);
+    assert.equal(result.asset.Trades[3].Action, "Sell");
+    assert.equal(result.asset.Trades[3].Qty, 2);
+    assertClose(result.realizedPnl, -38.928571428571445);
+    assert.equal(result.summary.quantity, 5);
+    assertClose(result.summary.invested, 1982.3714285714286);
+    assertClose(result.summary.averagePrice, 396.4742857142857);
 });
 
 test("accepts legacy trades without CommissionOut and validates imported structure", () => {
@@ -131,5 +146,8 @@ test("accepts legacy trades without CommissionOut and validates imported structu
     assert.throws(() => PositionCore.validatePortfolio({ EXM: { Trades: "invalid" } }), /must be an array/);
     assert.throws(() => PositionCore.validatePortfolio({ EXM: { Div: -1 } }), /Div must be a finite, nonnegative number/);
     assert.throws(() => PositionCore.validatePortfolio({ EXM: { Periodicity: "weekly" } }), /Periodicity must be M, Q, S, or A/);
+    assert.throws(() => PositionCore.validatePortfolio({ EXM: { Trades: [{
+        Action: "Sell", Strategy: "SniperNine", Qty: 1, Date: "invalid", Price: 10, Commission: 0
+    }] } }), /Date must use YYYY-MM-DD/);
     assert.throws(() => PositionCore.createAsset("__PROTO__"), /Ticker symbols must start/);
 });

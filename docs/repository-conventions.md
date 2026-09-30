@@ -295,6 +295,14 @@ prompts/
 
 ---
 
+# Issue Tracking and Resolution
+
+Use GitHub Issues as the canonical tracker for all work items. Classify each as a `bug`, `requirement clarification`, `new requirement` or `feature`, `change request`, `refactor` or `maintenance`, `documentation`, or another explicit type. Do not classify every request as a bug. Keep durable product behavior in `docs/specs/`, repository-wide decisions in `copilot/decisions/`, and implementation plus tests in their owning source directories; do not maintain a second issue-status list in Markdown.
+
+Each issue should record its context, affected area, expected outcome, and acceptance criteria. For bugs, include observed behavior and reproducible steps. For requirement clarifications, record the ambiguity and agreed interpretation. For new requirements and change requests, describe the intended behavior and examples. For financial changes, include raw quantities, prices, commissions, and expected calculated results so arithmetic can be checked independently.
+
+Use labels for issue type and affected area (`html`, `go`, `python`, `docs`). Resolve work through a pull request that references the issue and uses `Closes #<number>`. Its resolution note should summarize what changed, affected source/spec/schema files, validation performed, and compatibility implications. Update a spec when behavior changes; add a numbered decision record when the rule is durable or affects multiple modules. If GitHub cannot be updated directly, state that explicitly and record durable repository decisions in the appropriate local document; never imply that an external issue was updated when it was not.
+
 # Workflow Convention
 
 ## Format

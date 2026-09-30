@@ -26,6 +26,14 @@ These tools are:
   root-level version as the reusable source asset and starting point for
   external projects.
 
+## Issue Intake and Resolution
+
+- Classify every incoming issue or work request as a bug, requirement clarification, new requirement or feature, change request, refactor or maintenance task, documentation task, or another explicit type. Do not assume every request is a bug.
+- Preserve the supplied GitHub issue number and link. Treat the GitHub issue as the canonical tracker; do not create a parallel issue-status list in repository Markdown.
+- Ensure each issue captures its context, current behavior or ambiguity, expected outcome, acceptance criteria, and affected area. For financial behavior, include worked inputs and expected values.
+- When work is completed, document the resolution in the linked issue or pull request: what changed, affected source/spec/schema files, validation performed, and compatibility notes. If GitHub cannot be updated from the available tools, document durable decisions in `copilot/decisions/` or update the owning spec, and clearly report that the external issue still needs its resolution note or closure.
+- For requests without a GitHub issue, do not invent an issue number. Capture the outcome in the resulting pull request or in the relevant durable repository documentation.
+
 # General Coding Instructions
 
 - Very important: Use internal program documentation to make the code more human readable and understandable.

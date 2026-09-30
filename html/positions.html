@@ -7,51 +7,62 @@
     <style>
         :root {
             color-scheme: light;
-            --ink: #202b2a;
-            --muted: #65716f;
-            --paper: #f3f4ef;
+            --ink: #333333;
+            --muted: #64748b;
+            --paper: #f4f6f9;
             --surface: #ffffff;
-            --line: #d8ded9;
-            --green: #1f6655;
-            --green-dark: #174c40;
-            --coral: #ae4a34;
-            --coral-pale: #fbefeb;
-            --mint-pale: #e9f2ed;
+            --line: #e2e8f0;
+            --blue: #2563eb;
+            --blue-dark: #1d4ed8;
+            --navy: #0f172a;
+            --navy-dark: #1e293b;
+            --positive: #16a34a;
             --amber-pale: #fff4db;
         }
         * { box-sizing: border-box; }
         body {
             margin: 0;
+            padding: 20px;
             background: var(--paper);
             color: var(--ink);
-            font-family: "Aptos", "Segoe UI", sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             font-size: 15px;
             line-height: 1.45;
         }
         button, input, select { font: inherit; }
         button, select, input { min-height: 40px; }
         button { cursor: pointer; }
-        :focus-visible { outline: 3px solid #d7774e; outline-offset: 2px; }
+        :focus-visible { outline: 3px solid #93c5fd; outline-offset: 2px; }
         .topbar {
             display: flex;
             justify-content: space-between;
             align-items: center;
             gap: 20px;
-            padding: 16px max(24px, calc((100vw - 1320px) / 2));
-            color: white;
-            background: var(--green-dark);
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 30px 30px 0;
+            border-radius: 12px 12px 0 0;
+            color: var(--ink);
+            background: var(--surface);
         }
         .brand { display: flex; align-items: baseline; gap: 12px; }
-        .brand strong { font-family: Georgia, serif; font-size: 22px; font-weight: 500; }
-        .brand span { color: #d8e4de; font-size: 13px; }
-        .topbar a { color: #f3d6b9; text-underline-offset: 3px; }
-        main { max-width: 1320px; margin: 0 auto; padding: 28px 24px 56px; }
+        .brand strong { color: #1a202c; font-size: 20px; font-weight: 700; }
+        .brand span { color: var(--muted); font-size: 13px; }
+        .topbar a { color: var(--blue); text-underline-offset: 3px; }
+        main {
+            max-width: 1100px;
+            margin: 0 auto 20px;
+            padding: 24px 30px 30px;
+            border-radius: 0 0 12px 12px;
+            background: var(--surface);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        }
         .page-head { display: flex; justify-content: space-between; align-items: end; gap: 24px; margin-bottom: 24px; }
         h1, h2, h3, p { margin-top: 0; }
-        h1 { margin-bottom: 4px; font-family: Georgia, serif; font-size: 32px; font-weight: 500; }
+        h1 { margin-bottom: 4px; color: #1a202c; font-size: 28px; font-weight: 650; }
         h2 { margin-bottom: 16px; font-size: 19px; font-weight: 650; }
         h3 { margin-bottom: 10px; font-size: 15px; }
-        .eyebrow { margin-bottom: 3px; color: var(--coral); font-size: 12px; font-weight: 700; text-transform: uppercase; }
+        .eyebrow { margin-bottom: 3px; color: var(--blue); font-size: 12px; font-weight: 700; text-transform: uppercase; }
         .page-head p { margin-bottom: 0; color: var(--muted); }
         .file-actions { display: flex; gap: 10px; flex-wrap: wrap; }
         .button {
@@ -59,16 +70,16 @@
             justify-content: center;
             align-items: center;
             gap: 8px;
-            border: 1px solid var(--green);
-            border-radius: 4px;
+            border: 1px solid var(--blue);
+            border-radius: 6px;
             padding: 8px 14px;
             color: white;
-            background: var(--green);
+            background: var(--blue);
             font-weight: 650;
         }
-        .button:hover { background: var(--green-dark); }
-        .button.secondary { color: var(--green-dark); background: white; }
-        .button.secondary:hover { background: var(--mint-pale); }
+        .button:hover { background: var(--blue-dark); }
+        .button.secondary { border-color: var(--navy); background: var(--navy); }
+        .button.secondary:hover { background: var(--navy-dark); }
         .toolbar {
             display: grid;
             grid-template-columns: minmax(220px, 1.1fr) minmax(260px, 2fr);
@@ -82,31 +93,32 @@
         label { color: var(--muted); font-size: 12px; font-weight: 700; }
         input, select {
             width: 100%;
-            border: 1px solid #b9c5bf;
-            border-radius: 3px;
-            padding: 8px 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            padding: 8px;
             color: var(--ink);
             background: white;
         }
-        input:disabled, select:disabled { color: #717b78; background: #edf0ed; }
+        input:disabled, select:disabled { color: #717b78; background: #edf2f7; }
         .ticker-create { display: grid; grid-template-columns: 100px minmax(150px, 1fr) 120px 120px auto; gap: 10px; align-items: end; }
         .ticker-create .button { white-space: nowrap; }
-        .status { min-height: 28px; padding: 7px 0; color: var(--green-dark); font-size: 13px; }
+        .status { min-height: 28px; padding: 7px 0; color: #15803d; font-size: 13px; }
         .status[data-kind="error"] { color: #9b3024; }
-        .status[data-kind="success"] { color: var(--green-dark); }
+        .status[data-kind="success"] { color: #15803d; }
         .empty-state { margin: 18px 0 0; padding: 24px 0; border-bottom: 1px solid var(--line); color: var(--muted); }
         [hidden] { display: none !important; }
         .warning { margin: 16px 0; padding: 12px 14px; border-left: 4px solid #b47516; background: var(--amber-pale); color: #573b10; }
         .asset-title { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 10px 0 14px; }
-        .asset-title h2 { margin: 0; font-family: Georgia, serif; font-size: 23px; font-weight: 500; }
+        .asset-title h2 { margin: 0; color: #1a202c; font-size: 20px; font-weight: 650; }
         .summary {
             display: grid;
             grid-template-columns: repeat(5, minmax(120px, 1fr));
-            border-top: 1px solid var(--line);
-            border-bottom: 1px solid var(--line);
-            background: #e9eee9;
+            gap: 0;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: #f8fafc;
         }
-        .metric { padding: 14px 16px; border-right: 1px solid #d4dcd6; }
+        .metric { padding: 14px 16px; border-right: 1px solid var(--line); }
         .metric:last-child { border-right: 0; }
         .metric span { display: block; color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; }
         .metric strong { display: block; margin-top: 4px; font-variant-numeric: tabular-nums; font-size: 19px; }
@@ -119,14 +131,14 @@
         .form-grid .button { grid-column: span 2; }
         .table-wrap { width: 100%; overflow-x: auto; }
         table { width: 100%; min-width: 780px; border-collapse: collapse; text-align: left; font-size: 13px; }
-        th { padding: 10px 9px; border-bottom: 1px solid #aebbb4; color: var(--muted); font-size: 11px; text-transform: uppercase; white-space: nowrap; }
-        td { padding: 9px; border-bottom: 1px solid #e1e6e2; font-variant-numeric: tabular-nums; white-space: nowrap; }
-        tbody tr:hover { background: #f6f8f5; }
+        th { padding: 12px; border-bottom: 1px solid var(--line); color: #475569; background: #f1f5f9; font-size: 13px; font-weight: 600; white-space: nowrap; }
+        td { padding: 10px 12px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; white-space: nowrap; }
+        tbody tr:hover { background: #f8fafc; }
         td input[type="number"] { min-width: 92px; min-height: 34px; padding: 5px 7px; }
         .empty-cell { padding: 20px 9px; color: var(--muted); text-align: center; }
-        .close-form { display: grid; grid-template-columns: repeat(3, minmax(140px, 180px)) auto; gap: 12px; align-items: end; margin-top: 14px; }
+        .close-form { display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)) minmax(150px, max-content) minmax(175px, max-content); gap: 12px; align-items: end; margin-top: 14px; }
         .close-form .button { grid-column: span 1; }
-        .positive { color: #17674d; }
+        .positive { color: var(--positive); }
         .negative { color: #a33328; }
         .what-if { display: grid; grid-template-columns: minmax(160px, 220px) minmax(250px, 1fr); gap: 16px; align-items: end; max-width: 640px; }
         .what-if output { display: block; min-height: 40px; padding: 9px 0; font-size: 17px; font-weight: 700; }
@@ -142,9 +154,9 @@
             .toolbar { grid-template-columns: 1fr; }
         }
         @media (max-width: 520px) {
-            main { padding: 20px 15px 40px; }
-            .topbar { padding: 14px 15px; }
-            .brand { align-items: start; flex-direction: column; gap: 0; }
+            body { padding: 12px; }
+            main { padding: 20px 15px 30px; }
+            .topbar { align-items: start; flex-direction: column; gap: 12px; padding: 20px 15px 0; }
             .brand span { display: none; }
             .file-actions { width: 100%; }
             .file-actions .button { flex: 1; }
@@ -152,6 +164,7 @@
             .ticker-create .field:nth-child(2) { grid-column: span 2; }
             .metadata { grid-template-columns: 1fr 1fr; }
             .what-if { grid-template-columns: 1fr; }
+            .close-form .button { grid-column: span 2; width: 100%; }
         }
     </style>
 </head>
@@ -169,7 +182,7 @@
             <div>
                 <p class="eyebrow">Trading records</p>
                 <h1>Positions</h1>
-                <p>Open positions, selected-lot closes, and realized results.</p>
+                <p>Open positions, aggregate reductions, and realized results.</p>
             </div>
             <div class="file-actions">
                 <label class="button secondary" for="portfolioFile">Open JSON</label>
@@ -227,20 +240,14 @@
             </section>
 
             <section class="section">
-                <div class="section-head"><h2>Open lots</h2><p>Select one or more lots and enter the quantity to reduce or close.</p></div>
-                <form id="closeTradeForm">
-                    <div class="table-wrap">
-                        <table>
-                            <thead><tr><th>Select</th><th>Side</th><th>Strategy</th><th>Opened</th><th>Open qty</th><th>Entry price</th><th>Entry fee remaining</th><th>Close qty</th></tr></thead>
-                            <tbody id="openLotsBody"></tbody>
-                        </table>
-                    </div>
-                    <div class="close-form">
-                        <div class="field"><label for="closePrice">Exit price</label><input id="closePrice" type="number" min="0" step="any" required></div>
-                        <div class="field"><label for="closeCommission">Total close commission</label><input id="closeCommission" type="number" min="0" step="0.01" value="0" required></div>
-                        <div class="field"><label for="closeDate">Close date</label><input id="closeDate" type="date" required></div>
-                        <button id="closeTradeButton" class="button" type="submit">Reduce / close selected</button>
-                    </div>
+                <div class="section-head"><h2>Reduce or close position</h2><p id="closeActionHint"></p></div>
+                <form id="closeTradeForm" class="close-form">
+                    <div class="field"><label for="closeQuantity">Quantity to reduce</label><input id="closeQuantity" type="number" min="0.00000001" step="any" placeholder="Required to reduce"></div>
+                    <div class="field"><label for="closePrice">Execution price</label><input id="closePrice" type="number" min="0" step="any" required></div>
+                    <div class="field"><label for="closeCommission">Commission</label><input id="closeCommission" type="number" min="0" step="0.01" value="0" required></div>
+                    <div class="field"><label for="closeDate">Execution date</label><input id="closeDate" type="date" required></div>
+                    <button id="closeTradeButton" class="button" type="submit" name="closeMode" value="reduce">Reduce position</button>
+                    <button id="closePositionButton" class="button secondary" type="submit" name="closeMode" value="full">Close full position</button>
                 </form>
             </section>
 
@@ -253,11 +260,11 @@
             </section>
 
             <section class="section">
-                <div class="section-head"><h2>Closed lots</h2><p>Realized P&amp;L includes allocated entry and exit commissions.</p></div>
+                <div class="section-head"><h2>Trade history</h2><p>Executions are retained as entered; position totals are derived from the ledger.</p></div>
                 <div class="table-wrap">
                     <table>
-                        <thead><tr><th>Side</th><th>Strategy</th><th>Opened</th><th>Closed</th><th>Qty</th><th>Entry</th><th>Exit</th><th>Exit fee</th><th>Realized P&amp;L</th></tr></thead>
-                        <tbody id="closedLotsBody"></tbody>
+                        <thead><tr><th>Action</th><th>Strategy</th><th>Date</th><th>Qty</th><th>Price</th><th>Commission</th><th>Realized P&amp;L</th></tr></thead>
+                        <tbody id="tradeHistoryBody"></tbody>
                     </table>
                 </div>
             </section>

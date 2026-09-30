@@ -28,19 +28,10 @@ The root JSON object functions as a key-value dictionary. Each primary key repre
   * **`Direction`** *(String)*: Market path bias orientation parameter (e.g., `"Long"`).
   * **`Size`** *(Float)*: Collective active shared balance size volume matching entry level state.
   * **`AvgPrice`** *(Float)*: Direction-adjusted weighted entry basis per open unit, including allocated entry commissions. For longs it is entry cost per unit; for shorts it is net opening proceeds per unit after commission.
-* **`Trades`** *(Array of Objects)*: Sequential layer data containing historical or simulated cost-reduction tranches.
-  * **`On`** *(Boolean)*: System logical switch parameter flag (`true` / `false`) mapping calculation impacts.
-  * **`Strategy`** *(String)*: System algorithmic designation strategy or tag trace note parameter text string.
-  * **`Qty`** *(Float)*: Positive quantity magnitude for the entry lot or closed portion.
-  * **`Direction`** *(String)*: Position side for the entry lot: `"Long"` or `"Short"`.
-  * **`DateIn`** *(String)*: Date of the opening execution.
-  * **`PriceIn`** *(Float)*: Entry execution price per unit; it is the buy price for a long and the sale price for a short.
-  * **`Commission`** *(Float)*: Entry execution commission allocated to this lot quantity.
-  * **`DateOut` / `PriceOut`**: Closing execution date and price per unit. Required for a fully or partially closed record (`On: false`); blank/zero while open.
-  * **`CommissionOut`** *(Float)*: Closing execution commission allocated to this closed quantity. It is a cost in realized P&L and is zero while open. Treat it as zero when absent from legacy records.
+* **`Trades`** *(Array of Objects)*: Ordered execution history. New real-position executions are append-only rows with `Action` (`"Buy"` or `"Sell"`), `Strategy`, positive `Qty`, `Date` (`YYYY-MM-DD`), execution `Price`, and execution `Commission`. Do not edit earlier executions when reducing a position. Legacy rows using `On`, `Direction`, `DateIn`, `PriceIn`, `DateOut`, `PriceOut`, and `CommissionOut` remain supported. `On` is a planner toggle for `DCA_Planner` rows; on new execution rows it is omitted.
 
 ### Aggregates
-* **`Invested`** *(Float)*: Basis for the open quantity. For longs, sum of entry cost plus allocated entry commission. For shorts, net opening sale proceeds after allocated entry commission. Closing fees affect realized P&L, not the remaining open basis.
+* **`Invested`** *(Float)*: Average-cost basis for the open quantity. For longs, acquisition cost plus opening commissions less basis released by sales. For shorts, net opening sale proceeds less basis released by covers. Closing commissions affect realized P&L, not remaining open basis.
 * **`DivAmnt`** *(Float)*: Gross dividend amount per payout cycle for the current quantity, calculated as `Qty * Div`. It is not annualized. Derive an annual projection separately as `DivAmnt * payouts per year` using `Periodicity`.
 
 ### Dividend Amount Example

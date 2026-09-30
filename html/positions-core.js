@@ -47,10 +47,29 @@
                 if (trade.On !== undefined && typeof trade.On !== "boolean") {
                     fail(`${ticker}.Trades[${index}].On must be a boolean.`);
                 }
+                if (trade.Action !== undefined && !["Buy", "Sell"].includes(trade.Action)) {
+                    fail(`${ticker}.Trades[${index}].Action must be Buy or Sell.`);
+                }
                 for (const field of ["Qty", "PriceIn", "PriceOut", "Commission", "CommissionOut"]) {
                     if (trade[field] !== undefined && trade[field] !== "") {
                         asNonnegativeNumber(trade[field], `${ticker}.Trades[${index}].${field}`);
                     }
+                }
+                for (const field of ["Price", "Commission"]) {
+                    if (trade.Action && trade[field] !== undefined && trade[field] !== "") {
+                        asNonnegativeNumber(trade[field], `${ticker}.Trades[${index}].${field}`);
+                    }
+                }
+                if (trade.Action) {
+                    if (!STRATEGIES.includes(trade.Strategy)) {
+                        fail(`${ticker}.Trades[${index}].Strategy must be a supported real-position strategy.`);
+                    }
+                    if (asNonnegativeNumber(trade.Qty, `${ticker}.Trades[${index}].Qty`) <= 0) {
+                        fail(`${ticker}.Trades[${index}].Qty must be greater than zero.`);
+                    }
+                    asNonnegativeNumber(trade.Price, `${ticker}.Trades[${index}].Price`);
+                    asNonnegativeNumber(trade.Commission ?? 0, `${ticker}.Trades[${index}].Commission`);
+                    parseIsoDate(trade.Date, `${ticker}.Trades[${index}].Date`);
                 }
                 if (trade.Direction !== undefined && !["Long", "Short"].includes(trade.Direction)) {
                     fail(`${ticker}.Trades[${index}].Direction must be Long or Short.`);
@@ -78,10 +97,6 @@
         return value;
     }
 
-    function activeLots(asset) {
-        return (asset.Trades || []).filter(trade => trade.On === true && trade.Strategy !== "DCA_Planner");
-    }
-
     function assertRealTicker(ticker, asset) {
         if (ticker.startsWith(".")) {
             fail("Dot-prefixed tickers are reserved for DCA planning, not real positions.");
@@ -92,32 +107,79 @@
     }
 
     function summarize(asset) {
-        const lots = activeLots(asset);
-        const directions = new Set(lots.map(lot => lot.Direction));
-        if (directions.size > 1) {
-            fail("A ticker cannot have open Long and Short lots at the same time.");
-        }
-
-        const direction = directions.values().next().value || asset.Positions?.[0]?.Direction || "Long";
-        let quantity = 0;
+        let signedQuantity = 0;
         let invested = 0;
-        for (const lot of lots) {
+        let realizedPnl = 0;
+        const realizedTrades = [];
+        for (const [index, lot] of (asset.Trades || []).entries()) {
+            if (lot.Action || lot.On !== true || lot.Strategy === "DCA_Planner") continue;
             const lotQuantity = asNonnegativeNumber(lot.Qty, "Open trade quantity");
             const entryPrice = asNonnegativeNumber(lot.PriceIn, "Open trade entry price");
             const commission = asNonnegativeNumber(lot.Commission ?? 0, "Entry commission");
             if (lotQuantity <= 0) fail("Open trade quantity must be greater than zero.");
-            quantity += lotQuantity;
+            const direction = lot.Direction || "Long";
+            if (signedQuantity !== 0 && Math.sign(signedQuantity) !== (direction === "Long" ? 1 : -1)) {
+                fail("A ticker cannot have open Long and Short positions at the same time.");
+            }
+            signedQuantity += direction === "Long" ? lotQuantity : -lotQuantity;
             invested += direction === "Long"
                 ? lotQuantity * entryPrice + commission
                 : lotQuantity * entryPrice - commission;
         }
+
+        for (const [index, trade] of (asset.Trades || []).entries()) {
+            if (!trade.Action) continue;
+            if (!["Buy", "Sell"].includes(trade.Action)) fail(`Trade ${index + 1} action must be Buy or Sell.`);
+            const tradeQuantity = asNonnegativeNumber(trade.Qty, `Trade ${index + 1} quantity`);
+            const price = asNonnegativeNumber(trade.Price, `Trade ${index + 1} price`);
+            const commission = asNonnegativeNumber(trade.Commission ?? 0, `Trade ${index + 1} commission`);
+            if (tradeQuantity <= 0) fail("Trade quantity must be greater than zero.");
+            parseIsoDate(trade.Date, `Trade ${index + 1} date`);
+
+            const tradeSign = trade.Action === "Buy" ? 1 : -1;
+            const quantity = Math.abs(signedQuantity);
+            const currentSign = Math.sign(signedQuantity);
+            if (currentSign === 0 || currentSign === tradeSign) {
+                signedQuantity += tradeSign * tradeQuantity;
+                invested += tradeSign > 0
+                    ? tradeQuantity * price + commission
+                    : tradeQuantity * price - commission;
+                continue;
+            }
+
+            if (tradeQuantity - quantity > EPSILON) {
+                fail("A trade cannot reverse a position; close the open quantity first.");
+            }
+            const closedQuantity = Math.min(tradeQuantity, quantity);
+            const allocatedBasis = Math.abs(tradeQuantity - quantity) <= EPSILON
+                ? invested
+                : invested * closedQuantity / quantity;
+            const tradePnl = currentSign > 0
+                ? closedQuantity * price - commission - allocatedBasis
+                : allocatedBasis - closedQuantity * price - commission;
+            realizedPnl += tradePnl;
+            realizedTrades.push({ index, realizedPnl: tradePnl });
+            invested = Math.max(0, invested - allocatedBasis);
+            signedQuantity += tradeSign * closedQuantity;
+            if (Math.abs(signedQuantity) <= EPSILON) {
+                signedQuantity = 0;
+                invested = 0;
+            }
+        }
+
         if (invested < -EPSILON) fail("Short entry commissions cannot exceed the opening proceeds.");
         invested = Math.max(invested, 0);
+        const quantity = Math.abs(signedQuantity);
+        const direction = signedQuantity === 0
+            ? asset.Positions?.[0]?.Direction || "Long"
+            : signedQuantity > 0 ? "Long" : "Short";
         return {
             direction,
             quantity,
             invested,
-            averagePrice: quantity > 0 ? invested / quantity : 0
+            averagePrice: quantity > 0 ? invested / quantity : 0,
+            realizedPnl,
+            realizedTrades
         };
     }
 
@@ -174,27 +236,15 @@
         }
         next.Trades ||= [];
         next.Trades.push({
-            On: true,
+            Action: input.direction === "Long" ? "Buy" : "Sell",
             Strategy: input.strategy,
             Qty: quantity,
-            Direction: input.direction,
-            DateIn: dateIn,
-            PriceIn: price,
-            Commission: commission,
-            DateOut: "",
-            PriceOut: 0,
-            CommissionOut: 0
+            Date: dateIn,
+            Price: price,
+            Commission: commission
         });
         const summary = syncSummary(next);
         return { asset: next, summary };
-    }
-
-    function cents(value) {
-        return Math.round(value * 100);
-    }
-
-    function amountFromCents(value) {
-        return value / 100;
     }
 
     function closePosition(asset, ticker, input) {
@@ -202,109 +252,29 @@
         const price = asNonnegativeNumber(input.price, "Close price");
         const commissionOut = asNonnegativeNumber(input.commissionOut, "Close commission");
         const dateOut = parseIsoDate(input.dateOut, "Close date");
-        if (!Array.isArray(input.selections) || input.selections.length === 0) {
-            fail("Select at least one open lot to close.");
-        }
-
         const current = summarize(asset);
         if (current.quantity <= 0) fail("There is no open position to close.");
-        const open = asset.Trades || [];
-        const selections = new Map();
-        let totalClosed = 0;
-        for (const selection of input.selections) {
-            if (!Number.isInteger(selection.index) || selections.has(selection.index)) {
-                fail("Each selected open lot must be unique.");
-            }
-            const lot = open[selection.index];
-            if (!lot || lot.On !== true || lot.Strategy === "DCA_Planner") {
-                fail("A selected trade is not an open real-position lot.");
-            }
-            if (lot.Direction !== current.direction) fail("Selected lots must match the active position direction.");
-            const lotQuantity = asNonnegativeNumber(lot.Qty, "Open trade quantity");
-            const quantity = asNonnegativeNumber(selection.quantity, "Close quantity");
-            if (quantity <= 0 || quantity - lotQuantity > EPSILON) {
-                fail("Close quantity must be greater than zero and no greater than the selected lot quantity.");
-            }
-            selections.set(selection.index, quantity);
-            totalClosed += quantity;
-        }
-        if (totalClosed - current.quantity > EPSILON) fail("Close quantity exceeds the open position.");
-
-        const selectedEntries = [...selections.entries()];
-        const exitCents = cents(commissionOut);
-        const closeFeeByIndex = new Map();
-        const feeShares = selectedEntries.map(([index, quantity], position) => {
-            const exactCents = exitCents * quantity / totalClosed;
-            return { index, position, cents: Math.floor(exactCents), remainder: exactCents % 1 };
-        });
-        let remainingCents = exitCents - feeShares.reduce((total, item) => total + item.cents, 0);
-        [...feeShares]
-            .sort((left, right) => right.remainder - left.remainder || left.position - right.position)
-            .slice(0, remainingCents)
-            .forEach(item => { item.cents += 1; });
-        feeShares.forEach(item => closeFeeByIndex.set(item.index, amountFromCents(item.cents)));
-
+        const requestedQuantity = input.quantity === "" || input.quantity === null || input.quantity === undefined
+            ? current.quantity
+            : asNonnegativeNumber(input.quantity, "Close quantity");
+        if (requestedQuantity <= 0) fail("Close quantity must be greater than zero.");
+        if (requestedQuantity - current.quantity > EPSILON) fail("Close quantity exceeds the open position.");
+        const quantity = Math.min(requestedQuantity, current.quantity);
         const next = cloneAsset(asset);
-        const newTrades = [];
-        let realizedPnl = 0;
-        const closedLots = [];
-        const remainingLots = [];
-        next.Trades.forEach((lot, index) => {
-            if (!selections.has(index)) {
-                newTrades.push(lot);
-                return;
-            }
-
-            const lotQuantity = Number(lot.Qty);
-            const closeQuantity = selections.get(index);
-            const originalFeeCents = cents(Number(lot.Commission || 0));
-            const isFullClose = Math.abs(closeQuantity - lotQuantity) <= EPSILON;
-            const entryFeeClosedCents = isFullClose
-                ? originalFeeCents
-                : Math.round(originalFeeCents * closeQuantity / lotQuantity);
-            const entryFeeClosed = amountFromCents(entryFeeClosedCents);
-            const entryFeeRemaining = amountFromCents(originalFeeCents - entryFeeClosedCents);
-            const closeFee = closeFeeByIndex.get(index);
-            const entryPrice = Number(lot.PriceIn);
-            const basisClosed = current.direction === "Long"
-                ? closeQuantity * entryPrice + entryFeeClosed
-                : closeQuantity * entryPrice - entryFeeClosed;
-            const proceedsOrCoverCost = closeQuantity * price;
-            realizedPnl += current.direction === "Long"
-                ? proceedsOrCoverCost - closeFee - basisClosed
-                : basisClosed - proceedsOrCoverCost - closeFee;
-
-            const closed = {
-                ...lot,
-                On: false,
-                Qty: closeQuantity,
-                Commission: entryFeeClosed,
-                DateOut: dateOut,
-                PriceOut: price,
-                CommissionOut: closeFee
-            };
-            closedLots.push(closed);
-            newTrades.push(closed);
-
-            const remainingQuantity = lotQuantity - closeQuantity;
-            if (remainingQuantity > EPSILON) {
-                const remaining = {
-                    ...lot,
-                    On: true,
-                    Qty: remainingQuantity,
-                    Commission: entryFeeRemaining,
-                    DateOut: "",
-                    PriceOut: 0,
-                    CommissionOut: 0
-                };
-                remainingLots.push(remaining);
-                newTrades.push(remaining);
-            }
-        });
-
-        next.Trades = newTrades;
+        const trade = {
+            Action: current.direction === "Long" ? "Sell" : "Buy",
+            Strategy: input.strategy || "SniperNine",
+            Qty: quantity,
+            Date: dateOut,
+            Price: price,
+            Commission: commissionOut
+        };
+        if (!STRATEGIES.includes(trade.Strategy)) fail("Choose a supported strategy.");
+        next.Trades ||= [];
+        next.Trades.push(trade);
         const summary = syncSummary(next);
-        return { asset: next, summary, realizedPnl, closedLots, remainingLots };
+        const realizedTrade = summary.realizedTrades.find(item => item.index === next.Trades.length - 1);
+        return { asset: next, summary, realizedPnl: realizedTrade?.realizedPnl ?? 0, trade };
     }
 
     function estimateCloseNow(asset, currentPrice) {

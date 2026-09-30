@@ -88,16 +88,6 @@ function assetHasLegacyPlannerRows(asset) {
     return (asset?.Trades || []).some(trade => trade.Strategy === "DCA_Planner");
 }
 
-function openRealLots(asset) {
-    return (asset?.Trades || []).map((trade, index) => ({ trade, index }))
-        .filter(item => item.trade.On === true && item.trade.Strategy !== "DCA_Planner");
-}
-
-function closedRealLots(asset) {
-    return (asset?.Trades || []).map((trade, index) => ({ trade, index }))
-        .filter(item => item.trade.On === false && item.trade.Strategy !== "DCA_Planner");
-}
-
 function appendCell(row, text, className = "") {
     const cell = document.createElement("td");
     cell.textContent = text;
@@ -106,50 +96,7 @@ function appendCell(row, text, className = "") {
     return cell;
 }
 
-function renderOpenLots(asset) {
-    const body = byId("openLotsBody");
-    body.replaceChildren();
-    openRealLots(asset).forEach(({ trade, index }) => {
-        const row = document.createElement("tr");
-        const selectCell = document.createElement("td");
-        const checkbox = document.createElement("input");
-        checkbox.type = "checkbox";
-        checkbox.setAttribute("aria-label", `Select lot ${index + 1} to close`);
-        checkbox.dataset.lotIndex = String(index);
-        selectCell.appendChild(checkbox);
-        row.appendChild(selectCell);
-        appendCell(row, trade.Direction || "Long");
-        appendCell(row, trade.Strategy || "");
-        appendCell(row, trade.DateIn || "");
-        appendCell(row, quantity(Number(trade.Qty) || 0));
-        appendCell(row, money(Number(trade.PriceIn) || 0));
-        appendCell(row, money(Number(trade.Commission) || 0));
-        const closeCell = document.createElement("td");
-        const closeInput = document.createElement("input");
-        closeInput.type = "number";
-        closeInput.min = "0";
-        closeInput.max = String(Number(trade.Qty) || 0);
-        closeInput.step = "any";
-        closeInput.value = String(Number(trade.Qty) || 0);
-        closeInput.disabled = true;
-        closeInput.dataset.closeQuantity = String(index);
-        closeInput.setAttribute("aria-label", `Quantity from lot ${index + 1} to close`);
-        checkbox.addEventListener("change", () => {
-            closeInput.disabled = !checkbox.checked;
-        });
-        closeCell.appendChild(closeInput);
-        row.appendChild(closeCell);
-        body.appendChild(row);
-    });
-    if (body.children.length === 0) {
-        const row = document.createElement("tr");
-        appendCell(row, "", "empty-cell").colSpan = 8;
-        row.firstChild.textContent = "No open real-position lots.";
-        body.appendChild(row);
-    }
-}
-
-function realizedPnl(trade) {
+function legacyRealizedPnl(trade) {
     const quantityValue = Number(trade.Qty) || 0;
     const entryPrice = Number(trade.PriceIn) || 0;
     const exitPrice = Number(trade.PriceOut) || 0;
@@ -160,26 +107,53 @@ function realizedPnl(trade) {
         : quantityValue * exitPrice - exitFee - quantityValue * entryPrice - entryFee;
 }
 
-function renderClosedLots(asset) {
-    const body = byId("closedLotsBody");
+function renderTradeHistory(asset, summary) {
+    const body = byId("tradeHistoryBody");
+    const realizedByIndex = new Map((summary?.realizedTrades || []).map(item => [item.index, item.realizedPnl]));
     body.replaceChildren();
-    closedRealLots(asset).forEach(({ trade }) => {
+    (asset.Trades || []).forEach((trade, index) => {
+        if (trade.Strategy === "DCA_Planner") return;
+        let action;
+        let date;
+        let price;
+        let commission;
+        let tradePnl;
+        if (trade.Action) {
+            action = trade.Action;
+            date = trade.Date;
+            price = trade.Price;
+            commission = trade.Commission;
+            tradePnl = realizedByIndex.get(index);
+        } else if (trade.On === true) {
+            action = `${trade.Direction || "Long"} entry`;
+            date = trade.DateIn;
+            price = trade.PriceIn;
+            commission = trade.Commission;
+        } else if (trade.On === false) {
+            action = `${trade.Direction || "Long"} close`;
+            date = trade.DateOut;
+            price = trade.PriceOut;
+            commission = trade.CommissionOut;
+            tradePnl = legacyRealizedPnl(trade);
+        } else {
+            return;
+        }
         const row = document.createElement("tr");
-        appendCell(row, trade.Direction || "");
+        appendCell(row, action || "");
         appendCell(row, trade.Strategy || "");
-        appendCell(row, trade.DateIn || "");
-        appendCell(row, trade.DateOut || "");
+        appendCell(row, date || "");
         appendCell(row, quantity(Number(trade.Qty) || 0));
-        appendCell(row, money(Number(trade.PriceIn) || 0));
-        appendCell(row, money(Number(trade.PriceOut) || 0));
-        appendCell(row, money(Number(trade.CommissionOut) || 0));
-        appendCell(row, money(realizedPnl(trade)), realizedPnl(trade) >= 0 ? "positive" : "negative");
+        appendCell(row, money(Number(price) || 0));
+        appendCell(row, money(Number(commission) || 0));
+        appendCell(row, tradePnl === undefined
+            ? "—"
+            : money(tradePnl), tradePnl === undefined ? "" : tradePnl >= 0 ? "positive" : "negative");
         body.appendChild(row);
     });
     if (body.children.length === 0) {
         const row = document.createElement("tr");
-        const cell = appendCell(row, "No closed real-position lots yet.", "empty-cell");
-        cell.colSpan = 9;
+        const cell = appendCell(row, "No real-position executions yet.", "empty-cell");
+        cell.colSpan = 7;
         body.appendChild(row);
     }
 }
@@ -202,18 +176,26 @@ function render() {
     const blocked = assetHasLegacyPlannerRows(asset);
     byId("openTradeButton").disabled = blocked;
     byId("closeTradeButton").disabled = blocked;
+    byId("closePositionButton").disabled = blocked;
     if (blocked) {
         warning.textContent = `This ticker contains DCA_Planner rows. Move them to a dot-prefixed planner ticker before recording real positions.`;
     }
 
+    let summary;
     try {
-        const summary = PositionCore.summarize(asset);
+        summary = PositionCore.summarize(asset);
         byId("positionDirection").textContent = summary.quantity > 0 ? summary.direction : "Flat";
         byId("positionQuantity").textContent = quantity(summary.quantity);
         byId("positionAverage").textContent = money(summary.averagePrice);
         byId("positionInvested").textContent = money(summary.invested);
         byId("positionDividend").textContent = money(summary.quantity * (Number(asset.Div) || 0));
         byId("positionDividendUnit").textContent = `per ${asset.Periodicity || "M"} payout`;
+        byId("closeActionHint").textContent = summary.direction === "Short"
+            ? "A reduction records a buy to cover; leave quantity blank to close the full position."
+            : "A reduction records a sell; leave quantity blank to close the full position.";
+        byId("closeQuantity").max = String(summary.quantity);
+        byId("closeTradeButton").disabled = blocked || summary.quantity <= 0;
+        byId("closePositionButton").disabled = blocked || summary.quantity <= 0;
         const direction = byId("tradeDirection");
         [...direction.options].forEach(option => {
             option.disabled = summary.quantity > 0 && option.value !== summary.direction;
@@ -222,8 +204,7 @@ function render() {
     } catch (error) {
         setStatus(error.message, true);
     }
-    renderOpenLots(asset);
-    renderClosedLots(asset);
+    renderTradeHistory(asset, summary);
     updateCloseNow();
 }
 
@@ -288,20 +269,26 @@ function handleCloseTrade(event) {
     event.preventDefault();
     const asset = selectedAsset();
     if (!asset) return;
-    const selections = [...document.querySelectorAll("[data-lot-index]:checked")].map(checkbox => {
-        const index = Number(checkbox.dataset.lotIndex);
-        return { index, quantity: document.querySelector(`[data-close-quantity="${index}"]`).value };
-    });
+    const closeMode = event.submitter?.value;
+    const closeQuantity = byId("closeQuantity").value;
+    if (closeMode !== "full" && closeQuantity === "") {
+        setStatus("Enter a quantity to reduce, or choose Close full position.", true);
+        return;
+    }
     try {
         const result = PositionCore.closePosition(asset, currentTicker, {
-            selections,
+            quantity: closeMode === "full" ? "" : closeQuantity,
             price: byId("closePrice").value,
             commissionOut: byId("closeCommission").value,
-            dateOut: byId("closeDate").value
+            dateOut: byId("closeDate").value,
+            strategy: byId("strategyInput").value
         });
         portfolioData[currentTicker] = result.asset;
+        byId("closeQuantity").value = "";
+        byId("closePrice").value = "";
+        byId("closeCommission").value = "0";
         render();
-        setStatus(`Closed selected quantity. Realized P&L: ${money(result.realizedPnl)}. Export to save.`);
+        setStatus(`Recorded ${result.trade.Action} of ${quantity(result.trade.Qty)}. Realized P&L: ${money(result.realizedPnl)}. Export to save.`);
     } catch (error) {
         setStatus(error.message, true);
     }
