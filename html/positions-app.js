@@ -158,6 +158,93 @@ function renderTradeHistory(asset, summary) {
     }
 }
 
+function formatHistoryDate(value) {
+    if (!value) return "—";
+    return new Intl.DateTimeFormat("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        timeZone: "UTC"
+    }).format(new Date(`${value}T00:00:00Z`));
+}
+
+function historyRows() {
+    const asset = selectedAsset();
+    if (!asset) return [];
+    return PositionCore.getTradeHistory(asset, {
+        filter: byId("tradeHistoryFilter").value,
+        startDate: byId("tradeHistoryFrom").value,
+        endDate: byId("tradeHistoryTo").value
+    });
+}
+
+function renderTradeHistoryDialog() {
+    const body = byId("tradeHistoryDialogBody");
+    body.replaceChildren();
+    try {
+        const rows = historyRows();
+        rows.forEach(trade => {
+            const row = document.createElement("tr");
+            const values = [
+                trade.action,
+                trade.status,
+                trade.on === null ? "—" : String(trade.on),
+                trade.strategy || "—",
+                quantity(trade.quantity),
+                trade.direction,
+                formatHistoryDate(trade.dateIn),
+                trade.priceIn === "" ? "—" : money(Number(trade.priceIn)),
+                trade.commissionIn === "" ? "—" : money(Number(trade.commissionIn)),
+                formatHistoryDate(trade.dateOut),
+                trade.priceOut === "" ? "—" : money(Number(trade.priceOut)),
+                trade.commissionOut === "" ? "—" : money(Number(trade.commissionOut))
+            ];
+            values.forEach(value => appendCell(row, value));
+            body.appendChild(row);
+        });
+        if (rows.length === 0) {
+            const row = document.createElement("tr");
+            const cell = appendCell(row, "No trades match these filters.", "empty-cell");
+            cell.colSpan = 12;
+            body.appendChild(row);
+        }
+        byId("tradeHistoryCount").textContent = `${rows.length} ${rows.length === 1 ? "trade" : "trades"}`;
+        return rows;
+    } catch (error) {
+        const row = document.createElement("tr");
+        const cell = appendCell(row, error.message, "empty-cell");
+        cell.colSpan = 12;
+        body.appendChild(row);
+        byId("tradeHistoryCount").textContent = "Filters could not be applied.";
+        return [];
+    }
+}
+
+function openTradeHistory() {
+    const asset = selectedAsset();
+    if (!asset) return;
+    const hasExecutionLedger = (asset.Trades || []).some(trade => trade.Action === "Buy" || trade.Action === "Sell");
+    byId("tradeHistoryFilter").value = hasExecutionLedger ? "all" : "open";
+    byId("tradeHistoryFrom").value = "";
+    byId("tradeHistoryTo").value = "";
+    byId("tradesDialogHeading").textContent = `Trade history · ${currentTicker}`;
+    renderTradeHistoryDialog();
+    byId("tradesDialog").showModal();
+}
+
+function downloadTradeHistory() {
+    const rows = renderTradeHistoryDialog();
+    const csv = `\uFEFF${PositionCore.tradeHistoryToCsv(rows)}`;
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const safeTicker = currentTicker.replace(/[^A-Z0-9.-]/g, "_");
+    link.href = url;
+    link.download = `${safeTicker}-trades-${today()}.csv`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 function render() {
     const asset = selectedAsset();
     const empty = !asset;
@@ -169,6 +256,12 @@ function render() {
     byId("assetHeading").textContent = assetName.includes(`(${currentTicker})`)
         ? assetName
         : `${assetName} (${currentTicker})`;
+    const exDate = PositionCore.formatNextExDate(asset.NextExDate);
+    byId("nextExDateField").hidden = !exDate;
+    byId("nextExDate").textContent = exDate;
+    byId("nextExDate").dateTime = /^\d{8}$/.test(asset.NextExDate || "")
+        ? `${asset.NextExDate.slice(0, 4)}-${asset.NextExDate.slice(4, 6)}-${asset.NextExDate.slice(6, 8)}`
+        : "";
     byId("dividendInput").value = String(Number(asset.Div) || 0);
     byId("periodicityInput").value = asset.Periodicity || "M";
     const warning = byId("legacyPlannerWarning");
@@ -347,6 +440,15 @@ byId("openTradeForm").addEventListener("submit", handleOpenTrade);
 byId("closeTradeForm").addEventListener("submit", handleCloseTrade);
 byId("metadataForm").addEventListener("change", updateTickerMetadata);
 byId("currentPriceInput").addEventListener("input", updateCloseNow);
+byId("tradeHistoryButton").addEventListener("click", openTradeHistory);
+byId("closeTradesDialog").addEventListener("click", () => byId("tradesDialog").close());
+byId("tradesDialog").addEventListener("keydown", event => {
+    if (event.key === "Escape") byId("tradesDialog").close();
+});
+byId("tradeHistoryFilter").addEventListener("change", renderTradeHistoryDialog);
+byId("tradeHistoryFrom").addEventListener("input", renderTradeHistoryDialog);
+byId("tradeHistoryTo").addEventListener("input", renderTradeHistoryDialog);
+byId("downloadTradeHistory").addEventListener("click", downloadTradeHistory);
 byId("entryDate").value = today();
 byId("closeDate").value = today();
 populateTickerDropdown();

@@ -2,7 +2,7 @@
 
 ## Repository Purpose
 
-This repository is a collection of usefully functions to perform finacncial calculations oriented to trading
+This repository is a collection of usefully functions to perform financial calculations oriented to trading
 
 It intents to be the daily go to tools to buy assets such as stocks , commodities or crypto.
 

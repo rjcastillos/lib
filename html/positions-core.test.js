@@ -151,3 +151,62 @@ test("accepts legacy trades without CommissionOut and validates imported structu
     }] } }), /Date must use YYYY-MM-DD/);
     assert.throws(() => PositionCore.createAsset("__PROTO__"), /Ticker symbols must start/);
 });
+
+test("filters and dates legacy open and closed trades using their respective dates", () => {
+    const asset = { Trades: [
+        { On: false, Strategy: "SniperNine", Qty: 2, Direction: "Long", DateIn: "2026.09.28", PriceIn: 10, Commission: 0.1, DateOut: "2026-09-30", PriceOut: 12, CommissionOut: 0.2 },
+        { On: true, Strategy: "Daytrade", Qty: 3, Direction: "Short", DateIn: "2026-09-29", PriceIn: 20, Commission: 0.3 },
+        { On: true, Strategy: "DCA_Planner", Qty: 100, Direction: "Long", DateIn: "2026-09-28", PriceIn: 10, Commission: 0 }
+    ] };
+
+    assert.deepEqual(PositionCore.getTradeHistory(asset, { filter: "open" }).map(row => row.index), [1]);
+    assert.deepEqual(PositionCore.getTradeHistory(asset, { filter: "closed" }).map(row => row.index), [0]);
+    assert.deepEqual(PositionCore.getTradeHistory(asset, {
+        filter: "all", startDate: "2026-09-29", endDate: "2026-09-30"
+    }).map(row => row.index), [1, 0]);
+    assert.equal(PositionCore.getTradeHistory(asset, { filter: "all" })[1].action, "Sell to reduce/close Long");
+});
+
+test("chronologically labels immutable Buy and Sell executions without lot status", () => {
+    const asset = { Trades: [
+        { Action: "Buy", Strategy: "SniperNine", Qty: 10, Date: "2026-09-28", Price: 10, Commission: 0 },
+        { Action: "Sell", Strategy: "Daytrade", Qty: 5, Date: "2026-09-29", Price: 11, Commission: 0 },
+        { Action: "Buy", Strategy: "SwingTrade", Qty: 6, Date: "2026-09-30", Price: 9, Commission: 0 }
+    ] };
+    const history = PositionCore.getTradeHistory(asset, { filter: "all" });
+
+    assert.deepEqual(history.map(row => row.action), [
+        "Buy to open/increase Long",
+        "Sell to reduce/close Long",
+        "Buy to open/increase Long"
+    ]);
+    assert.ok(history.every(row => row.status === "Execution" && row.on === null));
+    assert.deepEqual(PositionCore.getTradeHistory(asset, { filter: "open" }), []);
+    assert.deepEqual(PositionCore.getTradeHistory(asset, { filter: "all", startDate: "2026-09-29" }).map(row => row.index), [1, 2]);
+});
+
+test("derives short-entry and cover descriptions from immutable executions", () => {
+    const asset = { Trades: [
+        { Action: "Sell", Strategy: "SniperNine", Qty: 5, Date: "2026-09-28", Price: 20, Commission: 0 },
+        { Action: "Buy", Strategy: "Daytrade", Qty: 2, Date: "2026-09-29", Price: 18, Commission: 0 }
+    ] };
+
+    assert.deepEqual(PositionCore.getTradeHistory(asset, { filter: "all" }).map(row => row.action), [
+        "Sell to open/increase Short",
+        "Buy to cover Short"
+    ]);
+});
+
+test("formats valid compact Ex dates and exports quoted CSV", () => {
+    assert.equal(PositionCore.formatNextExDate("20261015"), "Oct 15, 2026");
+    assert.equal(PositionCore.formatNextExDate("20260230"), "");
+    assert.equal(PositionCore.formatNextExDate(""), "");
+
+    const csv = PositionCore.tradeHistoryToCsv([{
+        action: "Buy to open Long", status: "Open", on: true, strategy: "Swing, trade",
+        quantity: 1, direction: "Long", dateIn: "2026-09-30", priceIn: 10,
+        commissionIn: 0.2, dateOut: "", priceOut: "", commissionOut: ""
+    }]);
+    assert.match(csv, /"Swing, trade"/);
+    assert.ok(csv.startsWith("Action,Status,On,Strategy,Qty,Direction,DateIn,PriceIn,Commission,DateOut,PriceOut,CommissionOut\r\n"));
+});

@@ -97,6 +97,184 @@
         return value;
     }
 
+    function normalizeHistoryDate(value) {
+        if (typeof value !== "string") return "";
+        let normalized = value;
+        if (/^\d{8}$/.test(normalized)) {
+            normalized = `${normalized.slice(0, 4)}-${normalized.slice(4, 6)}-${normalized.slice(6, 8)}`;
+        } else if (/^\d{4}\.\d{2}\.\d{2}$/.test(normalized)) {
+            normalized = normalized.replaceAll(".", "-");
+        }
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return "";
+        const date = new Date(`${normalized}T00:00:00Z`);
+        return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === normalized
+            ? normalized
+            : "";
+    }
+
+    function formatNextExDate(value) {
+        if (typeof value !== "string" || !/^\d{8}$/.test(value)) return "";
+        const normalized = normalizeHistoryDate(value);
+        if (!normalized) return "";
+        return new Intl.DateTimeFormat("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+            timeZone: "UTC"
+        }).format(new Date(`${normalized}T00:00:00Z`));
+    }
+
+    function getTradeHistory(asset, options = {}) {
+        const filter = options.filter || "all";
+        if (!["open", "closed", "all"].includes(filter)) fail("Choose a supported trade-history filter.");
+        const events = [];
+        const trades = asset.Trades || [];
+        trades.forEach((trade, index) => {
+            if (trade.Strategy === "DCA_Planner") return;
+            if (trade.Action) {
+                events.push({
+                    index,
+                    phase: 1,
+                    eventDate: normalizeHistoryDate(trade.Date),
+                    signedQuantity: (trade.Action === "Buy" ? 1 : -1) * Number(trade.Qty),
+                    kind: "execution",
+                    trade
+                });
+                return;
+            }
+
+            const directionSign = trade.Direction === "Short" ? -1 : 1;
+            const entryDate = normalizeHistoryDate(trade.DateIn);
+            const isOpen = trade.On === true;
+            const displayDate = normalizeHistoryDate(isOpen ? trade.DateIn : trade.DateOut);
+            const row = {
+                index,
+                status: isOpen ? "Open" : trade.On === false ? "Closed" : "Unknown",
+                on: typeof trade.On === "boolean" ? trade.On : null,
+                strategy: trade.Strategy || "",
+                quantity: Number(trade.Qty) || 0,
+                direction: trade.Direction || "Long",
+                dateIn: normalizeHistoryDate(trade.DateIn),
+                priceIn: trade.PriceIn ?? "",
+                commissionIn: trade.Commission ?? "",
+                dateOut: normalizeHistoryDate(trade.DateOut),
+                priceOut: trade.PriceOut ?? "",
+                commissionOut: trade.CommissionOut ?? "",
+                displayDate,
+                action: isOpen
+                    ? trade.Direction === "Short" ? "Sell to open/increase Short" : "Buy to open/increase Long"
+                    : trade.On === false
+                        ? trade.Direction === "Short" ? "Buy to cover Short" : "Sell to reduce/close Long"
+                        : "Unknown"
+            };
+            events.push({
+                index,
+                phase: 0,
+                eventDate: entryDate,
+                signedQuantity: directionSign * row.quantity,
+                kind: "legacy-entry",
+                row
+            });
+            if (trade.On === false) {
+                events.push({
+                    index,
+                    phase: 2,
+                    eventDate: row.dateOut,
+                    signedQuantity: -directionSign * row.quantity,
+                    kind: "legacy-exit",
+                    row
+                });
+            } else if (isOpen) {
+                events[events.length - 1].kind = "legacy-open";
+                events[events.length - 1].row = row;
+            } else {
+                events.pop();
+            }
+        });
+
+        events.sort((left, right) => {
+            const leftDate = left.eventDate || "9999-99-99";
+            const rightDate = right.eventDate || "9999-99-99";
+            return leftDate.localeCompare(rightDate) || left.index - right.index || left.phase - right.phase;
+        });
+
+        let signedPosition = 0;
+        const rows = [];
+        for (const event of events) {
+            if (event.kind === "legacy-entry") {
+                signedPosition += event.signedQuantity;
+                continue;
+            }
+            if (event.kind === "legacy-exit") {
+                signedPosition += event.signedQuantity;
+                rows.push(event.row);
+                continue;
+            }
+            if (event.kind === "legacy-open") {
+                signedPosition += event.signedQuantity;
+                rows.push(event.row);
+                continue;
+            }
+
+            const trade = event.trade;
+            const actionSign = Math.sign(event.signedQuantity);
+            const positionBefore = Math.sign(signedPosition);
+            const isOpening = positionBefore === 0 || positionBefore === actionSign;
+            const direction = (positionBefore || actionSign) < 0 ? "Short" : "Long";
+            const date = event.eventDate;
+            const actionName = trade.Action === "Buy"
+                ? direction === "Short" && !isOpening ? "Buy to cover Short" : `Buy to ${isOpening ? "open/increase" : "reduce/close"} Long`
+                : direction === "Long" && !isOpening ? "Sell to reduce/close Long" : `Sell to ${isOpening ? "open/increase" : "reduce/close"} Short`;
+            const row = {
+                index: event.index,
+                status: "Execution",
+                on: null,
+                strategy: trade.Strategy || "",
+                quantity: Number(trade.Qty) || 0,
+                direction,
+                dateIn: isOpening ? date : "",
+                priceIn: isOpening ? trade.Price : "",
+                commissionIn: isOpening ? trade.Commission ?? 0 : "",
+                dateOut: isOpening ? "" : date,
+                priceOut: isOpening ? "" : trade.Price,
+                commissionOut: isOpening ? "" : trade.Commission ?? 0,
+                displayDate: date,
+                action: actionName
+            };
+            rows.push(row);
+            signedPosition += event.signedQuantity;
+        }
+
+        const startDate = options.startDate ? normalizeHistoryDate(options.startDate) : "";
+        const endDate = options.endDate ? normalizeHistoryDate(options.endDate) : "";
+        return rows
+            .filter(row => filter === "all"
+                || (filter === "open" && row.status === "Open")
+                || (filter === "closed" && row.status === "Closed"))
+            .filter(row => {
+                if ((startDate || endDate) && !row.displayDate) return false;
+                return (!startDate || row.displayDate >= startDate) && (!endDate || row.displayDate <= endDate);
+            })
+            .sort((left, right) => (left.displayDate || "9999-99-99").localeCompare(right.displayDate || "9999-99-99")
+                || left.index - right.index);
+    }
+
+    function tradeHistoryToCsv(rows) {
+        const columns = [
+            ["Action", "action"], ["Status", "status"], ["On", "on"], ["Strategy", "strategy"],
+            ["Qty", "quantity"], ["Direction", "direction"], ["DateIn", "dateIn"], ["PriceIn", "priceIn"],
+            ["Commission", "commissionIn"], ["DateOut", "dateOut"], ["PriceOut", "priceOut"],
+            ["CommissionOut", "commissionOut"]
+        ];
+        const escape = value => {
+            let text = value === null || value === undefined ? "" : String(value);
+            if (/^[\s]*[=+@]/.test(text) || /^[\s]*-[A-Za-z]/.test(text)) text = `'${text}`;
+            return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+        };
+        return [columns.map(([heading]) => escape(heading)).join(","),
+            ...rows.map(row => columns.map(([, key]) => escape(row[key])).join(","))].join("\r\n");
+    }
+
     function assertRealTicker(ticker, asset) {
         if (ticker.startsWith(".")) {
             fail("Dot-prefixed tickers are reserved for DCA planning, not real positions.");
@@ -294,7 +472,10 @@
         syncSummary,
         openPosition,
         closePosition,
-        estimateCloseNow
+        estimateCloseNow,
+        getTradeHistory,
+        tradeHistoryToCsv,
+        formatNextExDate
     };
     if (typeof module !== "undefined" && module.exports) module.exports = api;
     root.PositionCore = api;

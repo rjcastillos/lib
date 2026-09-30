@@ -1,6 +1,6 @@
 # Copilot Memory
 
-This directory records decisions and prompt evolution for the reusable assets in Agent Foundry.
+This directory records decisions ,prompt evolution and every issue presented as bug , new or requiriment clarifications and changes in general of this repo
 
 ## Structure
 
