@@ -5,9 +5,9 @@ let statusTimer;
 
 const byId = id => document.getElementById(id);
 const today = () => new Date().toISOString().slice(0, 10);
-const money = value => new Intl.NumberFormat("en-US", {
+const money = (value, currency = "USD") => new Intl.NumberFormat("en-US", {
     style: "currency",
-    currency: "USD",
+    currency: currency.trim().toUpperCase(),
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
 }).format(value);
@@ -147,22 +147,24 @@ function renderTradeHistory(asset, summary) {
         } else {
             return;
         }
+        const currency = (trade.Currency || asset.Currency || "USD").trim().toUpperCase();
         const row = document.createElement("tr");
         appendCell(row, action || "");
         appendCell(row, trade.Strategy || "");
         appendCell(row, date || "");
+        appendCell(row, currency);
         appendCell(row, quantity(Number(trade.Qty) || 0));
-        appendCell(row, money(Number(price) || 0));
-        appendCell(row, money(Number(commission) || 0));
+        appendCell(row, money(Number(price) || 0, currency));
+        appendCell(row, money(Number(commission) || 0, currency));
         appendCell(row, tradePnl === undefined
             ? "—"
-            : money(tradePnl), tradePnl === undefined ? "" : tradePnl >= 0 ? "positive" : "negative");
+            : money(tradePnl, currency), tradePnl === undefined ? "" : tradePnl >= 0 ? "positive" : "negative");
         body.appendChild(row);
     });
     if (body.children.length === 0) {
         const row = document.createElement("tr");
         const cell = appendCell(row, "No real-position executions yet.", "empty-cell");
-        cell.colSpan = 7;
+        cell.colSpan = 8;
         body.appendChild(row);
     }
 }
@@ -201,12 +203,13 @@ function renderTradeHistoryDialog() {
                 trade.strategy || "—",
                 quantity(trade.quantity),
                 trade.direction,
+                trade.currency.toUpperCase(),
                 formatHistoryDate(trade.dateIn),
-                trade.priceIn === "" ? "—" : money(Number(trade.priceIn)),
-                trade.commissionIn === "" ? "—" : money(Number(trade.commissionIn)),
+                trade.priceIn === "" ? "—" : money(Number(trade.priceIn), trade.currency),
+                trade.commissionIn === "" ? "—" : money(Number(trade.commissionIn), trade.currency),
                 formatHistoryDate(trade.dateOut),
-                trade.priceOut === "" ? "—" : money(Number(trade.priceOut)),
-                trade.commissionOut === "" ? "—" : money(Number(trade.commissionOut))
+                trade.priceOut === "" ? "—" : money(Number(trade.priceOut), trade.currency),
+                trade.commissionOut === "" ? "—" : money(Number(trade.commissionOut), trade.currency)
             ];
             values.forEach(value => appendCell(row, value));
             body.appendChild(row);
@@ -214,7 +217,7 @@ function renderTradeHistoryDialog() {
         if (rows.length === 0) {
             const row = document.createElement("tr");
             const cell = appendCell(row, "No trades match these filters.", "empty-cell");
-            cell.colSpan = 12;
+            cell.colSpan = 13;
             body.appendChild(row);
         }
         byId("tradeHistoryCount").textContent = `${rows.length} ${rows.length === 1 ? "trade" : "trades"}`;
@@ -271,8 +274,14 @@ function render() {
     byId("nextExDate").dateTime = /^\d{8}$/.test(asset.NextExDate || "")
         ? `${asset.NextExDate.slice(0, 4)}-${asset.NextExDate.slice(4, 6)}-${asset.NextExDate.slice(6, 8)}`
         : "";
-    byId("dividendInput").value = String(Number(asset.Div) || 0);
+    byId("dividendInput").value = String(asset.Periodicity === "N/A" ? 0 : Number(asset.Div) || 0);
+    byId("assetCurrencyInput").value = asset.Currency || "USD";
+    byId("assetTypeInput").value = asset.AssetType || "Other";
     byId("periodicityInput").value = asset.Periodicity || "M";
+    byId("dividendInput").disabled = byId("periodicityInput").value === "N/A";
+    const tickerCurrency = asset.Currency || "USD";
+    byId("entryCurrency").value = tickerCurrency;
+    byId("closeCurrency").value = tickerCurrency;
     const warning = byId("legacyPlannerWarning");
     warning.hidden = !assetHasLegacyPlannerRows(asset);
     const blocked = assetHasLegacyPlannerRows(asset);
@@ -288,10 +297,14 @@ function render() {
         summary = PositionCore.summarize(asset);
         byId("positionDirection").textContent = summary.quantity > 0 ? summary.direction : "Flat";
         byId("positionQuantity").textContent = quantity(summary.quantity);
-        byId("positionAverage").textContent = money(summary.averagePrice);
-        byId("positionInvested").textContent = money(summary.invested);
-        byId("positionDividend").textContent = money(summary.quantity * (Number(asset.Div) || 0));
-        byId("positionDividendUnit").textContent = `per ${asset.Periodicity || "M"} payout`;
+        byId("positionAverage").textContent = money(summary.averagePrice, tickerCurrency);
+        byId("positionInvested").textContent = money(summary.invested, tickerCurrency);
+        byId("positionDividend").textContent = asset.Periodicity === "N/A"
+            ? "N/A"
+            : money(summary.quantity * (Number(asset.Div) || 0), tickerCurrency);
+        byId("positionDividendUnit").textContent = asset.Periodicity === "N/A"
+            ? "no dividend"
+            : `per ${asset.Periodicity || "M"} payout`;
         byId("closeActionHint").textContent = summary.direction === "Short"
             ? "A reduction records a buy to cover; leave quantity blank to close the full position."
             : "A reduction records a sell; leave quantity blank to close the full position.";
@@ -328,7 +341,9 @@ function handleAddTicker(event) {
         const asset = PositionCore.createAsset(ticker, {
             name: byId("newNameInput").value,
             dividend: byId("newDividendInput").value,
-            periodicity: byId("newPeriodicityInput").value
+            periodicity: byId("newPeriodicityInput").value,
+            currency: byId("newCurrencyInput").value,
+            assetType: byId("newAssetTypeInput").value
         });
         portfolioData[ticker] = asset;
         byId("newTickerInput").value = "";
@@ -354,7 +369,8 @@ function handleOpenTrade(event) {
             quantity: byId("entryQuantity").value,
             price: byId("entryPrice").value,
             commission: byId("entryCommission").value,
-            dateIn: byId("entryDate").value
+            dateIn: byId("entryDate").value,
+            currency: byId("entryCurrency").value
         });
         portfolioData[currentTicker] = result.asset;
         byId("entryQuantity").value = "";
@@ -383,14 +399,15 @@ function handleCloseTrade(event) {
             price: byId("closePrice").value,
             commissionOut: byId("closeCommission").value,
             dateOut: byId("closeDate").value,
-            strategy: byId("strategyInput").value
+            strategy: byId("strategyInput").value,
+            currency: byId("closeCurrency").value
         });
         portfolioData[currentTicker] = result.asset;
         byId("closeQuantity").value = "";
         byId("closePrice").value = "";
         byId("closeCommission").value = "0";
         render();
-        setStatus(`Recorded ${result.trade.Action} of ${quantity(result.trade.Qty)}. Realized P&L: ${money(result.realizedPnl)}. Export to save.`);
+        setStatus(`Recorded ${result.trade.Action} of ${quantity(result.trade.Qty)}. Realized P&L: ${money(result.realizedPnl, result.trade.Currency || asset.Currency || "USD")}. Export to save.`);
     } catch (error) {
         setStatus(error.message, true);
     }
@@ -409,7 +426,7 @@ function updateCloseNow() {
             byId("closeNowResult").textContent = "There is no open position to value.";
             return;
         }
-        byId("closeNowResult").textContent = `${money(estimate.unrealizedPnl)} before any closing commission`;
+        byId("closeNowResult").textContent = `${money(estimate.unrealizedPnl, asset.Currency || "USD")} before any closing commission`;
         byId("closeNowResult").className = estimate.unrealizedPnl >= 0 ? "positive" : "negative";
     } catch (error) {
         byId("closeNowResult").textContent = error.message;
@@ -420,15 +437,20 @@ function updateTickerMetadata() {
     const asset = selectedAsset();
     if (!asset) return;
     try {
-        const dividend = Number(byId("dividendInput").value);
-        if (!Number.isFinite(dividend) || dividend < 0) throw new Error("Dividend per cycle must be nonnegative.");
         const periodicity = byId("periodicityInput").value;
-        if (!Object.hasOwn({ M: true, Q: true, S: true, A: true }, periodicity)) {
+        const dividend = periodicity === "N/A" ? 0 : Number(byId("dividendInput").value);
+        if (!Number.isFinite(dividend) || dividend < 0) throw new Error("Dividend per cycle must be nonnegative.");
+        if (!Object.hasOwn({ M: true, Q: true, S: true, A: true, "N/A": true }, periodicity)) {
             throw new Error("Choose a supported dividend period.");
         }
+        const currency = byId("assetCurrencyInput").value.trim().toUpperCase();
+        const assetType = byId("assetTypeInput").value;
         const updatedAsset = JSON.parse(JSON.stringify(asset));
         updatedAsset.Div = dividend;
         updatedAsset.Periodicity = periodicity;
+        updatedAsset.Currency = currency;
+        updatedAsset.AssetType = assetType;
+        PositionCore.validatePortfolio({ [currentTicker]: updatedAsset });
         PositionCore.syncSummary(updatedAsset);
         portfolioData[currentTicker] = updatedAsset;
         render();
@@ -448,6 +470,11 @@ byId("newTickerForm").addEventListener("submit", handleAddTicker);
 byId("openTradeForm").addEventListener("submit", handleOpenTrade);
 byId("closeTradeForm").addEventListener("submit", handleCloseTrade);
 byId("metadataForm").addEventListener("change", updateTickerMetadata);
+byId("newPeriodicityInput").addEventListener("change", () => {
+    const noDividend = byId("newPeriodicityInput").value === "N/A";
+    byId("newDividendInput").disabled = noDividend;
+    if (noDividend) byId("newDividendInput").value = "0";
+});
 byId("currentPriceInput").addEventListener("input", updateCloseNow);
 byId("tradeHistoryButton").addEventListener("click", openTradeHistory);
 byId("closeTradesDialog").addEventListener("click", () => byId("tradesDialog").close());

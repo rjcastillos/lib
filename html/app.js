@@ -2,10 +2,20 @@ const PositionCore = window.PositionCore;
 let portfolioData = {};
 let currentTicker = "";
 let renderedTicker = "";
-const periodMultiplier = { M: 12, Q: 4, S: 2, A: 1 };
+const periodMultiplier = { M: 12, Q: 4, S: 2, A: 1, "N/A": 0 };
 
 function isPlannerTicker(ticker) {
     return ticker.startsWith(".");
+}
+
+function formatCurrency(value) {
+    const currency = (portfolioData[currentTicker]?.Currency || "USD").trim().toUpperCase();
+    return new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    }).format(value);
 }
 
 function validatePortfolio(data) {
@@ -15,6 +25,12 @@ function validatePortfolio(data) {
     for (const [ticker, asset] of Object.entries(data)) {
         if (!asset || typeof asset !== "object" || Array.isArray(asset)) {
             throw new Error(`${ticker} must contain an asset object.`);
+        }
+        if (asset.Periodicity !== undefined && !["M", "Q", "S", "A", "N/A"].includes(asset.Periodicity)) {
+            throw new Error(`${ticker}.Periodicity must be M, Q, S, A, or N/A.`);
+        }
+        if (asset.Currency !== undefined && (typeof asset.Currency !== "string" || !/^[A-Z]{3}$/i.test(asset.Currency.trim()))) {
+            throw new Error(`${ticker}.Currency must be a three-letter currency code.`);
         }
         if (asset.Trades !== undefined && !Array.isArray(asset.Trades)) {
             throw new Error(`${ticker}.Trades must be an array.`);
@@ -131,6 +147,8 @@ function addNewTicker() {
         portfolioData[plannerTicker] = {
             name: `${symbol} DCA Plan`,
             Ticker: plannerTicker,
+            Currency: "USD",
+            AssetType: "Other",
             Div: 0,
             Price: 0,
             Periodicity: "M",
@@ -161,8 +179,10 @@ function switchAsset() {
         return;
     }
 
-    document.getElementById("divInput").value = Number(asset.Div) || 0;
+    document.getElementById("divInput").value = asset.Periodicity === "N/A" ? 0 : Number(asset.Div) || 0;
     document.getElementById("periodInput").value = asset.Periodicity || "M";
+    document.getElementById("divInput").disabled = document.getElementById("periodInput").value === "N/A";
+    document.getElementById("currencyDisplay").value = asset.Currency || "USD";
     const trades = asset.Trades || [];
     if (isPlannerTicker(currentTicker)) {
         trades.forEach((trade, index) => {
@@ -224,8 +244,11 @@ function updateMetaAndCalc() {
         showStatus("Dividend per payout cycle must be a nonnegative number.", true);
         return;
     }
-    portfolioData[currentTicker].Div = dividend;
-    portfolioData[currentTicker].Periodicity = document.getElementById("periodInput").value;
+    const period = document.getElementById("periodInput").value;
+    portfolioData[currentTicker].Div = period === "N/A" ? 0 : dividend;
+    portfolioData[currentTicker].Periodicity = period;
+    document.getElementById("divInput").disabled = period === "N/A";
+    if (period === "N/A") document.getElementById("divInput").value = 0;
     calculateDCA();
 }
 
@@ -269,6 +292,7 @@ function saveCurrentViewToData(ticker = currentTicker) {
         else addedTrades.push(trade);
     });
     asset.Trades = originalTrades.map((trade, index) => updatesByIndex.get(index) || trade).concat(addedTrades);
+    if (asset.Periodicity === "N/A") asset.Div = 0;
     asset.Qty = totalShares;
     asset.Invested = totalInvested;
     asset.DivAmnt = totalShares * (Number(asset.Div) || 0);
@@ -282,8 +306,9 @@ function calculateDCA() {
     const dividendInput = Number(document.getElementById("divInput").value);
     const divValue = Number.isFinite(dividendInput) && dividendInput >= 0 ? dividendInput : 0;
     const period = document.getElementById("periodInput").value || "M";
-    const annualDiv = divValue * (periodMultiplier[period] || 12);
-    document.getElementById("annualDiv").value = `$${annualDiv.toFixed(2)}`;
+    const noDividend = period === "N/A";
+    const annualDiv = divValue * (periodMultiplier[period] ?? 12);
+    document.getElementById("annualDiv").value = noDividend ? "N/A" : formatCurrency(annualDiv);
     let runningShares = 0;
     let runningInvestment = 0;
 
@@ -300,17 +325,25 @@ function calculateDCA() {
         const average = runningShares > 0 ? runningInvestment / runningShares : 0;
         const payable = runningShares * divValue;
         const yoc = average > 0 ? annualDiv / average * 100 : 0;
-        row.querySelector(".investment").textContent = `$${investment.toFixed(2)}`;
-        row.querySelector(".priceAfterComm").textContent = qty > 0 ? `$${(investment / qty).toFixed(2)}` : "—";
-        row.querySelector(".dollarAvg").textContent = included && runningShares > 0 ? `$${average.toFixed(2)}` : "—";
-        row.querySelector(".payableAmount").textContent = included && runningShares > 0 ? `$${payable.toFixed(2)}` : "—";
-        row.querySelector(".yoc").textContent = included && runningShares > 0 ? `${yoc.toFixed(2)}%` : "—";
+        row.querySelector(".investment").textContent = formatCurrency(investment);
+        row.querySelector(".priceAfterComm").textContent = qty > 0 ? formatCurrency(investment / qty) : "—";
+        row.querySelector(".dollarAvg").textContent = included && runningShares > 0 ? formatCurrency(average) : "—";
+        row.querySelector(".payableAmount").textContent = noDividend
+            ? "N/A"
+            : included && runningShares > 0 ? formatCurrency(payable) : "—";
+        row.querySelector(".yoc").textContent = noDividend
+            ? "N/A"
+            : included && runningShares > 0 ? `${yoc.toFixed(2)}%` : "—";
     });
 
     const average = runningShares > 0 ? runningInvestment / runningShares : 0;
     document.getElementById("totalQty").textContent = runningShares;
-    document.getElementById("totalInvestment").textContent = `$${runningInvestment.toFixed(2)}`;
-    document.getElementById("finalAvg").textContent = `$${average.toFixed(2)}`;
-    document.getElementById("finalPayable").textContent = `$${(runningShares * divValue).toFixed(2)}`;
-    document.getElementById("finalYoc").textContent = average > 0 ? `${(annualDiv / average * 100).toFixed(2)}%` : "0.00%";
+    document.getElementById("totalInvestment").textContent = formatCurrency(runningInvestment);
+    document.getElementById("finalAvg").textContent = formatCurrency(average);
+    document.getElementById("finalPayable").textContent = noDividend
+        ? "N/A"
+        : formatCurrency(runningShares * divValue);
+    document.getElementById("finalYoc").textContent = noDividend
+        ? "N/A"
+        : average > 0 ? `${(annualDiv / average * 100).toFixed(2)}%` : "0.00%";
 }

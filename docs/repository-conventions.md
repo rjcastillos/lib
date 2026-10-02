@@ -301,7 +301,18 @@ Use GitHub Issues as the canonical tracker for all work items. Classify each as 
 
 Each issue should record its context, affected area, expected outcome, and acceptance criteria. For bugs, include observed behavior and reproducible steps. For requirement clarifications, record the ambiguity and agreed interpretation. For new requirements and change requests, describe the intended behavior and examples. For financial changes, include raw quantities, prices, commissions, and expected calculated results so arithmetic can be checked independently.
 
-Use labels for issue type and affected area (`html`, `go`, `python`, `docs`). Resolve work through a pull request that references the issue and uses `Closes #<number>`. Its resolution note should summarize what changed, affected source/spec/schema files, validation performed, and compatibility implications. Update a spec when behavior changes; add a numbered decision record when the rule is durable or affects multiple modules. If GitHub cannot be updated directly, state that explicitly and record durable repository decisions in the appropriate local document; never imply that an external issue was updated when it was not.
+Use labels for issue type and affected area (`html`, `go`, `python`, `docs`). Resolve work through a pull request that references the issue and uses `Closes #<number>`. Its resolution note should summarize what changed, affected source/spec/schema files, validation performed, and compatibility implications. Update a spec when behavior changes. When implementation establishes or changes durable product behavior, financial semantics, or a schema contract, also add a numbered decision record linked to the originating issue; a spec update alone does not replace this record. If GitHub cannot be updated directly, record the local resolution details and issue link in the decision or owning spec, state that explicitly, and report that the external issue still needs its resolution note or closure. Never imply that an external issue was updated when it was not.
+
+### Issue Completion Gate
+
+Before reporting an issue as implemented, verify all applicable items:
+
+1. The issue type, number, and canonical GitHub link are preserved.
+2. The owning specification and schema reflect changed user-visible or data-contract behavior.
+3. A numbered decision record exists when the change establishes or changes durable product rules, financial semantics, or schema contracts; it links the originating issue and records the decision, rationale, affected areas, validation, and compatibility.
+4. The linked issue or pull request has a resolution note covering changes, affected files, validation, and compatibility. If GitHub was unavailable, those details are recorded locally and the outstanding external resolution note or closure is explicitly reported.
+
+Do not maintain a separate Markdown issue-status tracker. The decision record documents the rule; it is not a replacement tracker.
 
 # Workflow Convention
 

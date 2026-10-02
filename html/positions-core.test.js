@@ -218,11 +218,78 @@ test("accepts legacy trades without CommissionOut and validates imported structu
     }).EXM.Trades[0].CommissionOut, undefined);
     assert.throws(() => PositionCore.validatePortfolio({ EXM: { Trades: "invalid" } }), /must be an array/);
     assert.throws(() => PositionCore.validatePortfolio({ EXM: { Div: -1 } }), /Div must be a finite, nonnegative number/);
-    assert.throws(() => PositionCore.validatePortfolio({ EXM: { Periodicity: "weekly" } }), /Periodicity must be M, Q, S, or A/);
+    assert.throws(() => PositionCore.validatePortfolio({ EXM: { Periodicity: "weekly" } }), /Periodicity must be M, Q, S, A, or N\/A/);
     assert.throws(() => PositionCore.validatePortfolio({ EXM: { Trades: [{
         Action: "Sell", Strategy: "SniperNine", Qty: 1, Date: "invalid", Price: 10, Commission: 0
     }] } }), /Date must use YYYY-MM-DD/);
     assert.throws(() => PositionCore.createAsset("__PROTO__"), /Ticker symbols must start/);
+});
+
+test("supports optional ticker metadata and a no-dividend period", () => {
+    const asset = PositionCore.createAsset("XAU", {
+        name: "Gold",
+        dividend: 0,
+        periodicity: "N/A",
+        currency: "eur",
+        assetType: "Commodities"
+    });
+
+    assert.equal(asset.Currency, "EUR");
+    assert.equal(asset.AssetType, "Commodities");
+    assert.equal(asset.Periodicity, "N/A");
+    assert.equal(asset.Div, 0);
+    asset.Div = 2;
+    asset.DivAmnt = 10;
+    PositionCore.syncSummary(asset);
+    assert.equal(asset.Div, 0);
+    assert.equal(asset.DivAmnt, 0);
+    assert.equal(PositionCore.validatePortfolio({ OLD: { Trades: [] } }).OLD.Currency, undefined);
+    assert.throws(() => PositionCore.createAsset("XAU", {
+        dividend: 0.1, periodicity: "N/A", currency: "EUR", assetType: "Commodities"
+    }), /must be zero when the payout period is N\/A/);
+    assert.throws(() => PositionCore.validatePortfolio({
+        XAU: { Currency: "EURO" }
+    }), /three-letter currency code/);
+    assert.throws(() => PositionCore.validatePortfolio({
+        XAU: { AssetType: "Metal" }
+    }), /supported asset type/);
+});
+
+test("stores per-execution currency and supplies legacy history currency fallback", () => {
+    const asset = PositionCore.createAsset("EXM", {
+        currency: "EUR",
+        assetType: "ETF"
+    });
+    const opened = PositionCore.openPosition(asset, "EXM", {
+        direction: "Long",
+        quantity: 2,
+        price: 10,
+        commission: 0,
+        dateIn: "2026-09-28",
+        strategy: "LongtimeInvestment",
+        currency: "gbp"
+    });
+
+    assert.equal(opened.asset.Trades[0].Currency, "GBP");
+    assert.equal(PositionCore.getTradeHistory(opened.asset, { filter: "all" })[0].currency, "GBP");
+    const closed = PositionCore.closePosition(opened.asset, "EXM", {
+        quantity: 1,
+        price: 11,
+        commissionOut: 0,
+        dateOut: "2026-09-29",
+        currency: "EUR"
+    });
+    assert.equal(closed.asset.Trades[1].Currency, "EUR");
+    assert.equal(PositionCore.getTradeHistory({ Trades: [{
+        Action: "Buy", Strategy: "SniperNine", Qty: 1,
+        Date: "2026-09-28", Price: 10, Commission: 0
+    }], Currency: "EUR" }, { filter: "all" })[0].currency, "EUR");
+    assert.equal(PositionCore.tradeHistoryToCsv([{
+        action: "Buy to open Long", status: "Execution", on: null, strategy: "SwingTrade",
+        quantity: 1, direction: "Long", currency: "EUR", dateIn: "2026-09-30",
+        priceIn: 10, commissionIn: 0, dateOut: "", priceOut: "", commissionOut: ""
+    }]).split("\r\n")[0],
+    "Action,Status,On,Strategy,Qty,Direction,Currency,DateIn,PriceIn,Commission,DateOut,PriceOut,CommissionOut");
 });
 
 test("filters and dates legacy open and closed trades using their respective dates", () => {
@@ -281,5 +348,5 @@ test("formats valid compact Ex dates and exports quoted CSV", () => {
         commissionIn: 0.2, dateOut: "", priceOut: "", commissionOut: ""
     }]);
     assert.match(csv, /"Swing, trade"/);
-    assert.ok(csv.startsWith("Action,Status,On,Strategy,Qty,Direction,DateIn,PriceIn,Commission,DateOut,PriceOut,CommissionOut\r\n"));
+    assert.ok(csv.startsWith("Action,Status,On,Strategy,Qty,Direction,Currency,DateIn,PriceIn,Commission,DateOut,PriceOut,CommissionOut\r\n"));
 });

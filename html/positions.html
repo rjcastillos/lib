@@ -82,13 +82,13 @@
         .button.secondary:hover { background: var(--navy-dark); }
         .toolbar {
             display: grid;
-            grid-template-columns: minmax(220px, 1.1fr) minmax(260px, 2fr);
-            gap: 20px;
-            align-items: end;
+            grid-template-columns: minmax(0, 1fr);
+            gap: 12px;
             padding: 16px 0 20px;
             border-top: 1px solid var(--line);
             border-bottom: 1px solid var(--line);
         }
+        .ticker-select { width: min(100%, 360px); }
         .field { display: grid; gap: 5px; min-width: 0; }
         label { color: var(--muted); font-size: 12px; font-weight: 700; }
         input, select {
@@ -100,8 +100,8 @@
             background: white;
         }
         input:disabled, select:disabled { color: #717b78; background: #edf2f7; }
-        .ticker-create { display: grid; grid-template-columns: 100px minmax(150px, 1fr) 120px 120px auto; gap: 10px; align-items: end; }
-        .ticker-create .button { white-space: nowrap; }
+        .ticker-create { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; align-items: end; }
+        .ticker-create .button { min-width: 0; white-space: nowrap; }
         .status { min-height: 28px; padding: 7px 0; color: #15803d; font-size: 13px; }
         .status[data-kind="error"] { color: #9b3024; }
         .status[data-kind="success"] { color: #15803d; }
@@ -129,7 +129,7 @@
         .section { padding: 24px 0; border-bottom: 1px solid var(--line); }
         .section-head { display: flex; justify-content: space-between; gap: 20px; align-items: baseline; }
         .section-head p { margin: 0; color: var(--muted); font-size: 13px; }
-        .metadata { display: grid; grid-template-columns: repeat(3, minmax(160px, 220px)); gap: 14px; }
+        .metadata { display: grid; grid-template-columns: repeat(4, minmax(140px, 1fr)); gap: 14px; }
         .form-grid { display: grid; grid-template-columns: repeat(6, minmax(115px, 1fr)); gap: 12px; align-items: end; }
         .form-grid .button { grid-column: span 2; }
         .table-wrap { width: 100%; overflow-x: auto; }
@@ -139,7 +139,7 @@
         tbody tr:hover { background: #f8fafc; }
         td input[type="number"] { min-width: 92px; min-height: 34px; padding: 5px 7px; }
         .empty-cell { padding: 20px 9px; color: var(--muted); text-align: center; }
-        .close-form { display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)) minmax(150px, max-content) minmax(175px, max-content); gap: 12px; align-items: end; margin-top: 14px; }
+        .close-form { display: grid; grid-template-columns: repeat(5, minmax(110px, 1fr)) minmax(150px, max-content) minmax(175px, max-content); gap: 12px; align-items: end; margin-top: 14px; }
         .close-form .button { grid-column: span 1; }
         .positive { color: var(--positive); }
         .negative { color: #a33328; }
@@ -174,6 +174,7 @@
         @media (max-width: 850px) {
             .page-head { align-items: start; flex-direction: column; }
             .ticker-create { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
+            .ticker-create .button { grid-column: 1 / -1; }
             .summary { grid-template-columns: repeat(2, minmax(130px, 1fr)); }
             .metric:nth-child(2n) { border-right: 0; }
             .form-grid { grid-template-columns: repeat(2, minmax(130px, 1fr)); }
@@ -227,7 +228,7 @@
         </div>
 
         <div class="toolbar">
-            <div class="field">
+            <div class="field ticker-select">
                 <label for="assetDropdown">Real ticker</label>
                 <select id="assetDropdown"><option value="">Load a portfolio</option></select>
             </div>
@@ -235,10 +236,13 @@
                 <div class="field"><label for="newTickerInput">New ticker</label><input id="newTickerInput" required maxlength="16" placeholder="e.g. AAPL"></div>
                 <div class="field"><label for="newNameInput">Asset name</label><input id="newNameInput" placeholder="Company name"></div>
                 <div class="field"><label for="newDividendInput">Dividend / cycle</label><input id="newDividendInput" type="number" min="0" step="any" value="0"></div>
-                <div class="field"><label for="newPeriodicityInput">Period</label><select id="newPeriodicityInput"><option value="M">Monthly</option><option value="Q">Quarterly</option><option value="S">Semi-annual</option><option value="A">Annual</option></select></div>
+                <div class="field"><label for="newPeriodicityInput">Period</label><select id="newPeriodicityInput"><option value="M">Monthly</option><option value="Q">Quarterly</option><option value="S">Semi-annual</option><option value="A">Annual</option><option value="N/A">N/A · No dividends</option></select></div>
+                <div class="field"><label for="newCurrencyInput">Currency</label><input id="newCurrencyInput" value="USD" maxlength="3" pattern="[A-Za-z]{3}" required aria-describedby="currencyFormatHelp"></div>
+                <div class="field"><label for="newAssetTypeInput">Type of asset</label><select id="newAssetTypeInput" required><option value="">Choose type</option><option>Stocks</option><option>ETF</option><option>Commodities</option><option>Crypto</option><option>Treasury Bonds</option><option>T-Bills</option><option>Corporate Bonds</option><option>Other</option></select></div>
                 <button class="button secondary" type="submit">Add ticker</button>
             </form>
         </div>
+        <p id="currencyFormatHelp" class="footnote">Use a three-letter currency code such as USD or EUR. Currency is recorded as metadata; calculations do not convert between currencies.</p>
         <div id="statusMessage" class="status" role="status" aria-live="polite"></div>
         <p id="emptyState" class="empty-state">Open a portfolio JSON file or add a ticker to begin.</p>
 
@@ -262,8 +266,10 @@
             <section class="section">
                 <h2>Asset details</h2>
                 <form id="metadataForm" class="metadata">
+                    <div class="field"><label for="assetCurrencyInput">Currency</label><input id="assetCurrencyInput" maxlength="3" pattern="[A-Za-z]{3}" required></div>
+                    <div class="field"><label for="assetTypeInput">Type of asset</label><select id="assetTypeInput" required><option>Stocks</option><option>ETF</option><option>Commodities</option><option>Crypto</option><option>Treasury Bonds</option><option>T-Bills</option><option>Corporate Bonds</option><option>Other</option></select></div>
                     <div class="field"><label for="dividendInput">Dividend per share / cycle</label><input id="dividendInput" type="number" min="0" step="any"></div>
-                    <div class="field"><label for="periodicityInput">Payout period</label><select id="periodicityInput"><option value="M">Monthly</option><option value="Q">Quarterly</option><option value="S">Semi-annual</option><option value="A">Annual</option></select></div>
+                    <div class="field"><label for="periodicityInput">Payout period</label><select id="periodicityInput"><option value="M">Monthly</option><option value="Q">Quarterly</option><option value="S">Semi-annual</option><option value="A">Annual</option><option value="N/A">N/A · No dividends</option></select></div>
                 </form>
             </section>
 
@@ -276,6 +282,7 @@
                     <div class="field"><label for="entryPrice">Entry price</label><input id="entryPrice" type="number" min="0" step="any" required></div>
                     <div class="field"><label for="entryCommission">Entry commission</label><input id="entryCommission" type="number" min="0" step="0.01" value="0" required></div>
                     <div class="field"><label for="entryDate">Entry date</label><input id="entryDate" type="date" required></div>
+                    <div class="field"><label for="entryCurrency">Trade currency</label><input id="entryCurrency" maxlength="3" pattern="[A-Za-z]{3}" required></div>
                     <button id="openTradeButton" class="button" type="submit">Record open trade</button>
                 </form>
             </section>
@@ -287,6 +294,7 @@
                     <div class="field"><label for="closePrice">Execution price</label><input id="closePrice" type="number" min="0" step="any" required></div>
                     <div class="field"><label for="closeCommission">Commission</label><input id="closeCommission" type="number" min="0" step="0.01" value="0" required></div>
                     <div class="field"><label for="closeDate">Execution date</label><input id="closeDate" type="date" required></div>
+                    <div class="field"><label for="closeCurrency">Trade currency</label><input id="closeCurrency" maxlength="3" pattern="[A-Za-z]{3}" required></div>
                     <button id="closeTradeButton" class="button" type="submit" name="closeMode" value="reduce">Reduce position</button>
                     <button id="closePositionButton" class="button secondary" type="submit" name="closeMode" value="full">Close full position</button>
                 </form>
@@ -304,12 +312,12 @@
                 <div class="section-head"><h2>Trade history</h2><p>Executions are retained as entered; position totals are derived from the ledger.</p></div>
                 <div class="table-wrap">
                     <table>
-                        <thead><tr><th>Action</th><th>Strategy</th><th>Date</th><th>Qty</th><th>Price</th><th>Commission</th><th>Realized P&amp;L</th></tr></thead>
+                        <thead><tr><th>Action</th><th>Strategy</th><th>Date</th><th>Currency</th><th>Qty</th><th>Price</th><th>Commission</th><th>Realized P&amp;L</th></tr></thead>
                         <tbody id="tradeHistoryBody"></tbody>
                     </table>
                 </div>
             </section>
-            <p class="footnote">Portfolio data stays in this browser session. Export creates a JSON download; it does not modify the file you opened. Short-position basis is net opening proceeds after entry commission.</p>
+            <p class="footnote">Portfolio data stays in this browser session. Export creates a JSON download; it does not modify the file you opened. Short-position basis is net opening proceeds after entry commission. Currency is informational only: no currency conversion is applied to position totals or P&amp;L.</p>
         </section>
     </main>
     <dialog id="tradesDialog" class="trades-dialog" aria-labelledby="tradesDialogHeading">
@@ -334,7 +342,7 @@
             <p id="tradeHistoryCount" class="history-count" role="status" aria-live="polite"></p>
             <div class="history-table-wrap">
                 <table class="history-table">
-                    <thead><tr><th>Action</th><th>Status</th><th>On</th><th>Strategy</th><th>Qty</th><th>Direction</th><th>Date in</th><th>Price in</th><th>Commission</th><th>Date out</th><th>Price out</th><th>Commission out</th></tr></thead>
+                    <thead><tr><th>Action</th><th>Status</th><th>On</th><th>Strategy</th><th>Qty</th><th>Direction</th><th>Currency</th><th>Date in</th><th>Price in</th><th>Commission</th><th>Date out</th><th>Price out</th><th>Commission out</th></tr></thead>
                     <tbody id="tradeHistoryDialogBody"></tbody>
                 </table>
             </div>

@@ -9,7 +9,11 @@ Each decision should include:
 - Date
 - Status
 - Scope
+- Related issue or request, when one exists
 - Decision
 - Rationale
 - Affected files or areas
+- Validation and compatibility notes when the decision is implemented
 - Superseded decisions, when applicable
+
+For an issue-driven durable behavior or schema change, record the accepted decision in addition to updating its owning specification. If the external issue cannot be updated, include the issue link and a concise local resolution and validation summary here; report that the external resolution note or closure remains outstanding.

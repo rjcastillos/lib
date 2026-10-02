@@ -44,6 +44,10 @@ This new  module main requirement is to update the json file portfolio allowing 
 
 In all the actions the integrity of the data is a priority any update might changes other values and these need to be calculated and checked.
 
+Each ticker can also carry `Currency` and `AssetType` metadata. The positions page supports `Stocks`, `ETF`, `Commodities`, `Crypto`, `Treasury Bonds`, `T-Bills`, `Corporate Bonds`, and `Other`; currencies use three-letter codes such as `USD` or `EUR`. These fields are optional when reading older portfolio records. Each new real-position execution stores its own `Currency`; older executions without it display using the ticker currency, or `USD` when the ticker has no currency.
+
+Currency and asset type are informative only. The positions page does not perform currency conversion, so position totals and P&L should only be interpreted together when executions for that ticker use a common currency. Dividend period `N/A` means no dividend: keep `Div` at zero and show dividend projections as `N/A`.
+
 Keep in mind that these numbers are used to take financial decisions and the accuracy is key
 
 Rules:
@@ -77,6 +81,8 @@ If the selected ticker is a real one (does not start with a dot), legacy lot-sha
   "TICKER": {
     "name": "Company Name Inc. (TICKER)",
     "Ticker": "TICKER",
+    "Currency": "USD",
+    "AssetType": "Stocks",
     "Div": 0.00,
     "Price": 0.00,
     "Periodicity": "M",
@@ -119,11 +125,12 @@ New real-position trades are immutable execution records. Each purchase or sale 
   "Qty": 2,
   "Date": "2026-09-30",
   "Price": 377.01,
-  "Commission": 0.5
+  "Commission": 0.5,
+  "Currency": "USD"
 }
 ```
 
-`Action` is `Buy` or `Sell`; `Qty` is a positive magnitude; `Date` is the execution date; `Price` and `Commission` belong to that execution. `Direction` is derived from the signed net executions: buys increase signed quantity and sells decrease it. A buy while flat opens long; a sell while flat opens short. An opposite-side execution reduces the current position. Reject an execution larger than the remaining position so one trade cannot reverse direction.
+`Action` is `Buy` or `Sell`; `Qty` is a positive magnitude; `Date` is the execution date; `Price`, `Commission`, and `Currency` belong to that execution. `Currency` is optional for older records and uses the ticker currency for display when omitted. It is not used to convert calculations. `Direction` is derived from the signed net executions: buys increase signed quantity and sells decrease it. A buy while flat opens long; a sell while flat opens short. An opposite-side execution reduces the current position. Reject an execution larger than the remaining position so one trade cannot reverse direction.
 
 Legacy rows using `On`, `Direction`, `DateIn`, `PriceIn`, `DateOut`, and `PriceOut` remain readable. New execution rows do not use `On`; the flag remains a planner-row inclusion toggle and a legacy position field.
 

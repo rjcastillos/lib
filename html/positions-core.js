@@ -1,6 +1,7 @@
 (function attachPositionCore(root) {
     const EPSILON = 1e-9;
     const STRATEGIES = ["SniperNine", "Daytrade", "SwingTrade", "LongtimeInvestment"];
+    const ASSET_TYPES = ["Stocks", "ETF", "Commodities", "Crypto", "Treasury Bonds", "T-Bills", "Corporate Bonds", "Other"];
 
     function fail(message) {
         throw new Error(message);
@@ -17,6 +18,13 @@
         return number;
     }
 
+    function asCurrencyCode(value, label) {
+        if (typeof value !== "string" || !/^[A-Z]{3}$/i.test(value.trim())) {
+            fail(`${label} must be a three-letter currency code.`);
+        }
+        return value.trim().toUpperCase();
+    }
+
     function validatePortfolio(portfolio) {
         if (!portfolio || typeof portfolio !== "object" || Array.isArray(portfolio)) {
             fail("Portfolio JSON must be an object keyed by ticker.");
@@ -31,8 +39,14 @@
                     asNonnegativeNumber(asset[field], `${ticker}.${field}`);
                 }
             }
-            if (asset.Periodicity !== undefined && !["M", "Q", "S", "A"].includes(asset.Periodicity)) {
-                fail(`${ticker}.Periodicity must be M, Q, S, or A.`);
+            if (asset.Currency !== undefined) {
+                asCurrencyCode(asset.Currency, `${ticker}.Currency`);
+            }
+            if (asset.AssetType !== undefined && !ASSET_TYPES.includes(asset.AssetType)) {
+                fail(`${ticker}.AssetType must be a supported asset type.`);
+            }
+            if (asset.Periodicity !== undefined && !["M", "Q", "S", "A", "N/A"].includes(asset.Periodicity)) {
+                fail(`${ticker}.Periodicity must be M, Q, S, A, or N/A.`);
             }
             if (asset.Positions !== undefined && !Array.isArray(asset.Positions)) {
                 fail(`${ticker}.Positions must be an array.`);
@@ -49,6 +63,9 @@
                 }
                 if (trade.Action !== undefined && !["Buy", "Sell"].includes(trade.Action)) {
                     fail(`${ticker}.Trades[${index}].Action must be Buy or Sell.`);
+                }
+                if (trade.Currency !== undefined) {
+                    asCurrencyCode(trade.Currency, `${ticker}.Trades[${index}].Currency`);
                 }
                 for (const field of ["Qty", "PriceIn", "PriceOut", "Commission", "CommissionOut"]) {
                     if (trade[field] !== undefined && trade[field] !== "") {
@@ -154,6 +171,7 @@
                 strategy: trade.Strategy || "",
                 quantity: Number(trade.Qty) || 0,
                 direction: trade.Direction || "Long",
+                currency: trade.Currency || asset.Currency || "USD",
                 dateIn: normalizeHistoryDate(trade.DateIn),
                 priceIn: trade.PriceIn ?? "",
                 commissionIn: trade.Commission ?? "",
@@ -232,6 +250,7 @@
                 strategy: trade.Strategy || "",
                 quantity: Number(trade.Qty) || 0,
                 direction,
+                currency: trade.Currency || asset.Currency || "USD",
                 dateIn: isOpening ? date : "",
                 priceIn: isOpening ? trade.Price : "",
                 commissionIn: isOpening ? trade.Commission ?? 0 : "",
@@ -262,7 +281,8 @@
     function tradeHistoryToCsv(rows) {
         const columns = [
             ["Action", "action"], ["Status", "status"], ["On", "on"], ["Strategy", "strategy"],
-            ["Qty", "quantity"], ["Direction", "direction"], ["DateIn", "dateIn"], ["PriceIn", "priceIn"],
+            ["Qty", "quantity"], ["Direction", "direction"], ["Currency", "currency"],
+            ["DateIn", "dateIn"], ["PriceIn", "priceIn"],
             ["Commission", "commissionIn"], ["DateOut", "dateOut"], ["PriceOut", "priceOut"],
             ["CommissionOut", "commissionOut"]
         ];
@@ -402,7 +422,11 @@
             Size: summary.quantity,
             AvgPrice: summary.averagePrice
         }];
-        asset.DivAmnt = summary.quantity * asNonnegativeNumber(asset.Div ?? 0, "Dividend per cycle");
+        const dividend = asset.Periodicity === "N/A"
+            ? 0
+            : asNonnegativeNumber(asset.Div ?? 0, "Dividend per cycle");
+        if (asset.Periodicity === "N/A") asset.Div = 0;
+        asset.DivAmnt = summary.quantity * dividend;
         return summary;
     }
 
@@ -411,11 +435,17 @@
             fail("Ticker symbols must start with a letter or number and contain only letters, numbers, dots, or hyphens.");
         }
         const periodicity = details.periodicity || "M";
-        if (!["M", "Q", "S", "A"].includes(periodicity)) fail("Choose a supported dividend period.");
+        if (!["M", "Q", "S", "A", "N/A"].includes(periodicity)) fail("Choose a supported dividend period.");
+        const dividend = asNonnegativeNumber(details.dividend ?? 0, "Dividend per cycle");
+        if (periodicity === "N/A" && dividend !== 0) fail("Dividend per cycle must be zero when the payout period is N/A.");
+        const assetType = details.assetType || "Other";
+        if (!ASSET_TYPES.includes(assetType)) fail("Choose a supported asset type.");
         return {
             name: details.name?.trim() || `${ticker} Corporation`,
             Ticker: ticker,
-            Div: asNonnegativeNumber(details.dividend ?? 0, "Dividend per cycle"),
+            Currency: asCurrencyCode(details.currency ?? "USD", "Currency"),
+            AssetType: assetType,
+            Div: dividend,
             Price: 0,
             Periodicity: periodicity,
             Qty: 0,
@@ -438,6 +468,7 @@
         const commission = asNonnegativeNumber(input.commission, "Entry commission");
         if (quantity <= 0) fail("Quantity must be greater than zero.");
         const dateIn = parseIsoDate(input.dateIn, "Entry date");
+        const currency = input.currency === undefined ? undefined : asCurrencyCode(input.currency, "Trade currency");
 
         const next = cloneAsset(asset);
         const current = summarize(next);
@@ -451,7 +482,8 @@
             Qty: quantity,
             Date: dateIn,
             Price: price,
-            Commission: commission
+            Commission: commission,
+            ...(currency ? { Currency: currency } : {})
         });
         const summary = syncSummary(next);
         return { asset: next, summary };
@@ -462,6 +494,7 @@
         const price = asNonnegativeNumber(input.price, "Close price");
         const commissionOut = asNonnegativeNumber(input.commissionOut, "Close commission");
         const dateOut = parseIsoDate(input.dateOut, "Close date");
+        const currency = input.currency === undefined ? undefined : asCurrencyCode(input.currency, "Trade currency");
         const current = summarize(asset);
         if (current.quantity <= 0) fail("There is no open position to close.");
         const requestedQuantity = input.quantity === "" || input.quantity === null || input.quantity === undefined
@@ -477,7 +510,8 @@
             Qty: quantity,
             Date: dateOut,
             Price: price,
-            Commission: commissionOut
+            Commission: commissionOut,
+            ...(currency ? { Currency: currency } : {})
         };
         if (!STRATEGIES.includes(trade.Strategy)) fail("Choose a supported strategy.");
         next.Trades ||= [];

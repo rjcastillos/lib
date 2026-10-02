@@ -15,9 +15,11 @@ The root JSON object is keyed by ticker symbol. Each value contains asset metada
 ### Meta Parameter Metrics
 * **`name`** *(String)*: Human-readable asset name.
 * **`Ticker`** *(String)*: Asset ticker value. Planner tickers are conventionally dot-prefixed in the root key.
+* **`Currency`** *(String, optional for existing records)*: Three-letter currency code for the ticker, such as `USD` or `EUR`. Older records without this field continue to load and are displayed as USD by the browser tools.
+* **`AssetType`** *(String, optional for existing records)*: One of `Stocks`, `ETF`, `Commodities`, `Crypto`, `Treasury Bonds`, `T-Bills`, `Corporate Bonds`, or `Other`. Older records without this field continue to load and are shown as `Other` by the positions UI.
 * **`Div`** *(Number)*: Dividend per share for one payout cycle.
 * **`Price`** *(Number)*: Stored price/mark field; it is not used to derive trade basis.
-* **`Periodicity`** *(String)*: Payout interval for `Div`: `M` (monthly), `Q` (quarterly), `S` (semi-annual), or `A` (annual). These correspond to 12, 4, 2, and 1 payouts per year.
+* **`Periodicity`** *(String)*: Payout interval for `Div`: `M` (monthly), `Q` (quarterly), `S` (semi-annual), `A` (annual), or `N/A` (no dividend). The first four correspond to 12, 4, 2, and 1 payouts per year. `N/A` requires `Div` to be zero; dividend projections are displayed as `N/A`.
 * **`Qty`** *(Number)*: Nonnegative magnitude of the aggregate open position. `Positions[0].Direction` determines its side.
 * **`NextExDate`** *(String)*: Next ex-dividend date. The positions page displays valid compact dates in `YYYYMMDD` format; other formats are currently hidden.
 
@@ -48,8 +50,11 @@ New real-position trades append one row per executed buy or sell and never rewri
 | `Date` | Required valid calendar date in `YYYY-MM-DD` format; future dates are rejected. |
 | `Price` | Required nonnegative execution price per unit. |
 | `Commission` | Nonnegative fee for this execution; defaults to zero if omitted by an imported row. |
+| `Currency` | Optional three-letter currency code for this execution. New positions-page trades store it; legacy trades without it use the ticker currency for display. |
 
 New execution rows do not have `On`, `Direction`, `DateIn`, `PriceIn`, `DateOut`, or `PriceOut`. Direction is inferred by processing the executions in order: a buy increases long quantity or covers a short; a sell increases short quantity or reduces a long. Reductions consume the oldest open lot first, including part of a lot or quantities spanning multiple lots. A single execution cannot reverse an open position; close it first. Do not combine new execution rows with open legacy lot-shaped rows on the same ticker.
+
+Currency and asset type are informational metadata. The browser tools use the ticker currency for display and record each positions-page execution's currency, but do not convert currencies or adjust position, basis, dividend, or P&L calculations. Keep executions for one ticker in the same currency if their aggregate values are to be meaningful.
 
 ### Aggregates
 * **`Invested`** *(Number)*: FIFO basis of the remaining open quantity. For longs, sum the acquisition cost and remaining allocated entry commission for open lots. For shorts, sum net opening sale proceeds after remaining allocated entry commissions. A sale or cover releases basis from the oldest lot(s); closing commissions affect realized P&L, not remaining basis.
@@ -58,6 +63,8 @@ New execution rows do not have `On`, `Direction`, `DateIn`, `PriceIn`, `DateOut`
 ### Dividend Amount Example
 
 For 300 shares with `Div` = `$0.12` per monthly cycle, `DivAmnt` is `$36` per cycle. The annual projection is `$432` (`$36 * 12`), but `DivAmnt` remains `$36`.
+
+When `Periodicity` is `N/A`, set `Div` and `DivAmnt` to zero; the browser tools show dividend projections as `N/A` instead of treating them as a payout.
 
 ---
 
