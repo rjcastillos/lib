@@ -1,0 +1,30 @@
+{
+    "Seed": {
+            "Funding":1000.00,
+            "ProfitTakerPercent":1.02,
+            "LossTolerancePercent":1.00
+            },
+    "TradeEnter" :
+            {
+            "Ticker":"",
+            "Date":"",
+            "ATR":0.00,
+            "RVOL":0.00,
+            "Qty":0,
+            "Price":0.00,
+            "Fee":0.0,
+            "T1":0.00,
+            "T2":0.00,
+            "T3":0.00,
+            "SL":0.00
+            },
+    "Expentancy":
+            {
+            "ExpectedValue":0.00,
+            "Pright":0.0,
+            "Pwrong":0.0,
+            "Reward":0.0,
+            "Loss":0.0
+            }
+    
+}
