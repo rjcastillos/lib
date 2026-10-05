@@ -71,7 +71,9 @@
         </div>
         <div class="meta-item">
             <label for="currencyDisplay">Currency</label>
-            <input type="text" id="currencyDisplay" readonly>
+            <input type="text" id="currencyDisplay" maxlength="3" pattern="[A-Za-z]{3}" required
+                aria-describedby="currencyHelp" oninput="updateCurrencyAndCalc()" onchange="validateCurrencyInput()">
+            <small id="currencyHelp">Enter a three-letter currency code such as USD or EUR.</small>
         </div>
         <div class="meta-item">
             <label>Annualized Dividend</label>

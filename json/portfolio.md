@@ -15,7 +15,7 @@ The root JSON object is keyed by ticker symbol. Each value contains asset metada
 ### Meta Parameter Metrics
 * **`name`** *(String)*: Human-readable asset name.
 * **`Ticker`** *(String)*: Asset ticker value. Planner tickers are conventionally dot-prefixed in the root key.
-* **`Currency`** *(String, optional for existing records)*: Three-letter currency code for the ticker, such as `USD` or `EUR`. Older records without this field continue to load and are displayed as USD by the browser tools.
+* **`Currency`** *(String, optional for existing records)*: Three-letter currency code for the ticker, such as `USD` or `EUR`. Older records without this field continue to load and are displayed as USD by the browser tools. The DCA planner and positions page can edit this ticker-level value; the DCA planner normalizes it to uppercase.
 * **`AssetType`** *(String, optional for existing records)*: One of `Stocks`, `ETF`, `Commodities`, `Crypto`, `Treasury Bonds`, `T-Bills`, `Corporate Bonds`, or `Other`. Older records without this field continue to load and are shown as `Other` by the positions UI.
 * **`Div`** *(Number)*: Dividend per share for one payout cycle.
 * **`Price`** *(Number)*: Stored price/mark field; it is not used to derive trade basis.

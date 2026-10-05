@@ -252,6 +252,30 @@ function updateMetaAndCalc() {
     calculateDCA();
 }
 
+function updateCurrencyAndCalc() {
+    if (!currentTicker || !portfolioData[currentTicker]) return;
+    const input = document.getElementById("currencyDisplay");
+    const currency = input.value.trim();
+    if (!/^[A-Za-z]{3}$/.test(currency)) return;
+
+    const normalizedCurrency = currency.toUpperCase();
+    input.value = normalizedCurrency;
+    portfolioData[currentTicker].Currency = normalizedCurrency;
+    calculateDCA();
+}
+
+function validateCurrencyInput() {
+    if (!currentTicker || !portfolioData[currentTicker]) return;
+    const input = document.getElementById("currencyDisplay");
+    if (/^[A-Za-z]{3}$/.test(input.value.trim())) {
+        updateCurrencyAndCalc();
+        return;
+    }
+
+    showStatus("Currency must be a three-letter code such as USD or EUR.", true);
+    input.value = portfolioData[currentTicker].Currency || "USD";
+}
+
 function saveCurrentViewToData(ticker = currentTicker) {
     if (!ticker || !portfolioData[ticker]) return;
     const asset = portfolioData[ticker];
