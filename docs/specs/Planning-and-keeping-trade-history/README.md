@@ -112,7 +112,7 @@ The planner shall preserve the inputs and outputs needed to review the decision 
 ### REQ3 — Review completed activity
 
 - Users shall be able to review the executions and dates that produced a position, including partial reductions and the final close.
-- Store history separately from the REQ2 open-position snapshot. The history is transaction-level and append-only; use the existing ledger behavior if `portfolio.json` is confirmed as the history store, or define a separate store before implementation.
+- Store history separately from the REQ2 open-position snapshot. The history is transaction-level and append-only; use the existing ledger behavior for recording executions and deriving realized P&L into a separate csv file to keep a log of all executed trades. Do not overwrite or delete historical executions when a position is closed or reduced.
 - The transaction-level history shall remain consistent with the append-only execution contract and the existing [trade-history requirements](../Trades-window-with-filter/README.md).
 - A closed-position summary may show opening activity, closing activity, holding period, realized P&L, commissions, strategy, and plan reference, but only when those values can be derived unambiguously from the selected grouping/accounting rules.
 - Historical values shall not be silently recalculated using a current quote. The view shall distinguish recorded execution prices from any current or estimated price.
