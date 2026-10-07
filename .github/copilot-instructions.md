@@ -26,6 +26,12 @@ These tools are:
   root-level version as the reusable source asset and starting point for
   external projects.
 
+## Specs and definitions
+docs/specs 
+
+## Repository Conventions
+docs/repository-conventions.md
+
 ## Issue Intake and Resolution
 
 - Classify every incoming issue or work request as a bug, requirement clarification, new requirement or feature, change request, refactor or maintenance task, documentation task, or another explicit type. Do not assume every request is a bug.

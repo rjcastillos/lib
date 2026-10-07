@@ -12,7 +12,7 @@ The ATR calculation consists of two primary steps: calculating the True Range (T
 ## Step 1: True Range (TR)
 The True Range is the greatest of the following three values:
 
-   1. Current High minus Current Low
+   1. HLD - Current High minus Current Low
    2. Absolute value of Current High minus Previous Close
    3. Absolute value of Current Low minus Previous Close
 
@@ -139,3 +139,9 @@ This functional approach processes data arrays cleanly using native arrays.
 
 console.log("ATR Results:", calculateATR(marketData, 3));
 
+
+## Key Applications for Day Trading & Investing
+
+* Stop-Loss Placement: Day traders typically use a multiple of the ATR (e.g., 1.5x or 2x ATR) to set trailing stop-losses. This ensures that normal market noise doesn't prematurely trigger an exit. Based on the current ATR, a 1.5x stop-loss requires a room of about $14.50 from your entry.
+* Intraday Profit Targets: With a daily expected movement of around $10.00, setting a single-session profit target much wider than this value requires an unusual, catalyst-driven breakout. [5] 
+* Position Sizing: High ATR values mean higher volatility. When the ATR expands, traders typically scale down their total share size to keep their dollar risk constant across trades.

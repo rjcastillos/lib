@@ -24,16 +24,18 @@ These tools are:
 
 # Purpose
 
-To alculate an entry or exit position running easy commands or using the code as library that can be reused and imported for other outside GO mudules
-
-
-
+To calculate an entry or exit position running easy commands , by using a webinterface or using the code as library that can be reused and imported for other outside JS , GO and python mudules 
 
 ---
 
 # Repository Structure
- TBD 
+ TBD - Ongoing 
 
+## Architecture
+docs/architecture.md
+
+## Commit messages
+docs/commit-messages-goodpractices.md
 
 # Naming Standards
 
