@@ -34,3 +34,43 @@ temp/
 output/
 generated/
 
+
+---
+
+### Suggested .gitignore entries
+
+Add the following to your repo `.gitignore` to avoid committing the venv and other common unwanted files:
+
+```gitignore
+# Virtual environment
+.venv/
+venv/
+ENV/
+env/
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+
+
+# Logs and temporary files
+*.log
+tmp/
+*.tmp
+
+# Optional: lock files or local config
+# requirements.txt should be committed; local lock files can be ignored if you prefer
+# Pipenv
+Pipfile.lock
+
+# Jupyter
+.ipynb_checkpoints/
+
+
