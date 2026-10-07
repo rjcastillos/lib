@@ -31,34 +31,13 @@ pip install -r requirements.txt
 
 /home/rcastillo/checkoutcode/lib/python/.venv/bin/python
 
-git add README.md .gitignore
-git commit -m "Add README with venv setup instructions and .gitignore"
+## How to check from the top repo if a requirements.txt file exist
+[ -f requirements.txt ] && echo "exists" || echo "missing"
 
+## How to create a requirements.txt file
 
-## Dependencies' summary
+python -m pip freeze > requirements.txt
 
-Make sure pipx is installed 
-if not
-``` bash
-sudo apt install pip
-```
-for many .py scripts yfinance and pandas are needed
-With pip it will install the needed libraries in a virtual env 
-
-```bash
-sudo apt update
-sudo apt install python3-venv python3-full -y
-python3 -m venv .venv
-
-source .venv/bin/activate
-python -m pip install --upgrade pip setuptools wheel
-pip install yfinance
-
-
-```
-
-
-/home/rcastillo/.local/share/pipx/venvs/yfinance/bin/activate
 
 
 
