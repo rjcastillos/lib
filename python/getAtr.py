@@ -1,107 +1,133 @@
-
-#https://www.geeksforgeeks.org/different-ways-to-iterate-over-rows-in-pandas-dataframe/
-#from getAtr import *
-#For now only supports one TIcker at the time.
-#https://www.bajajfinserv.in/average-true-range-atr#:~:text=Average%20True%20Range%20(ATR)%3A,%2B%20TR14)%20%2F%2014
 import datetime
+import json
+import sys
+from pathlib import Path
+from typing import Sequence
 
-DEBUG=False
-Print=False
-OutputFile=False
-DAYSBACK=20
-f_date=datetime.datetime.now().strftime("%Y-%m-%d:%H")
-FromDateSearch=(datetime.date.today()-datetime.timedelta(DAYSBACK)).strftime("%Y-%m-%d")
-Period=14
-tickersList="../Tickers_owned.json"
+import numpy as np
+import pandas as pd
 
 
-def gATR(Tickers):
-    if DEBUG: print("received ARGS",Tickers)
-    Tickers=[Tickers]
-    #print("Tickers len =",len(Tickers))
-    for Ticker in Tickers:
-        if DEBUG: print("->",Ticker)
-        import yfinance as yf
-        data=yf.download(Ticker,start=FromDateSearch)
-        df=data.tail(Period+1)
-        #print(df) at this point the DataFrame (df) is the one output if Print=True
-        import pandas as pd
-        import numpy as py
-        if OutputFile:
-            df.to_csv('ATR_tmpout.csv')
-        for i in range(len(df)):
-            if i == 0:
-                #print("First Row",df.iloc[i])
-                High=float(0)
-                Low=float(0)
-                pClose=float(0)
-                pC=0
-                ######Adding new columns at the end of the df
-                #To insert the following calculations
-                #HLD = High - Low of the Day
-                #      HLD=High-Low
-                #HPC =  The Absolute value of the High of the Day - Previous close
-                #       HPC=abs(High-pClose)
-                
-                df.insert((len(df.columns)) , "HLD" , [py.nan]*len(df))
-                df.insert((len(df.columns)) , "HPC" , [py.nan]*len(df))
-                df.insert((len(df.columns)) , "LPC" , [py.nan]*len(df))
-                df.insert((len(df.columns)) , "tr" , [py.nan]*len(df))
-            while i > 0:
-                
-                High=df.iat[i,1]
-                Low=df.iat[i,2]
-                pC=i-1
-                pClose=df.iat[pC,0]
-                HLD=High-Low
-                #assigning values to new columns
-                df.iat[i,5]=HLD
-                HPC=abs(High-pClose)
-                df.iat[i,6]=HPC
-                LPC=abs(Low-pClose)
-                df.iat[i,7]=LPC
-                #sorting values to get the grater of HLD,HPC and LPC
-                values=[HLD,HPC,LPC]
-                values.sort()
-                #assigning the greater to new column tr
-                df.iat[i,8]=values[2]
-                _High=f"{High:.2f}"
-                _Low=f"{Low:.2f}"
-                _pClose=f"{High:.2f}"
-                _HLD=f"{HLD:.2f}"
-                _HPC=f"{HPC:.2f}"
-                _LPC=f"{LPC:.2f}"
-                #print("High :",_High,"Low :",_Low,"pClose =",_pClose,"HLD = ",_HLD,"HPC =",_HPC,"LPC = ",_LPC)
+DEBUG = False
+Print = False
+OutputFile = False
+DAYSBACK = 20
+Period = 14
+tickersList = Path(__file__).resolve().parent.parent / "Tickers_owned.json"
+
+
+def calculate_atr(ohlc: pd.DataFrame, period: int = Period) -> pd.Series:
+    """Calculate Wilder ATR values aligned with the OHLC rows."""
+    if not isinstance(period, int) or isinstance(period, bool) or period <= 0:
+        raise ValueError("period must be a positive integer")
+    if not isinstance(ohlc, pd.DataFrame):
+        raise TypeError("ohlc must be a pandas DataFrame")
+
+    required_columns = {"High", "Low", "Close"}
+    data = ohlc
+    if isinstance(data.columns, pd.MultiIndex):
+        for level in range(data.columns.nlevels):
+            labels = data.columns.get_level_values(level)
+            if required_columns.issubset(set(labels)):
+                data = data.copy()
+                data.columns = labels
                 break
-        #df.drop([0,1])
-        #df['tr']=df[['HLD','HPC','LPC']].max(axis=1)
-        #print("DATA FRAME with NEW COLS")
-        #print(df)
-        fATR=df['tr'].sum()
-        ATR=f"{fATR/(len(df)-1):.2f}"
-        if Print: print("<<<<< ATR >>>>> =",ATR)
-                
-                
-        
-    return ATR
-    
-    
+
+    missing_columns = required_columns.difference(data.columns)
+    if missing_columns:
+        missing = ", ".join(sorted(missing_columns))
+        raise ValueError(f"OHLC data is missing required columns: {missing}")
+    if not data.columns.is_unique:
+        raise ValueError("OHLC data must have unique column names")
+
+    prices = data.loc[:, ["High", "Low", "Close"]].apply(
+        pd.to_numeric, errors="raise"
+    )
+    price_values = prices.to_numpy(dtype=float)
+    if not np.isfinite(price_values).all():
+        raise ValueError("OHLC prices must be finite numbers")
+
+    high = prices["High"].to_numpy(dtype=float)
+    low = prices["Low"].to_numpy(dtype=float)
+    close = prices["Close"].to_numpy(dtype=float)
+    if np.any(high < low):
+        raise ValueError("High prices must be greater than or equal to Low prices")
+
+    true_range = np.empty(len(prices), dtype=float)
+    if len(prices):
+        true_range[0] = high[0] - low[0]
+        true_range[1:] = np.maximum.reduce(
+            (
+                high[1:] - low[1:],
+                np.abs(high[1:] - close[:-1]),
+                np.abs(low[1:] - close[:-1]),
+            )
+        )
+
+    atr_values = np.full(len(prices), np.nan, dtype=float)
+    if len(prices) >= period:
+        atr_values[period - 1] = np.mean(true_range[:period])
+        for index in range(period, len(prices)):
+            atr_values[index] = (
+                atr_values[index - 1] * (period - 1) + true_range[index]
+            ) / period
+
+    return pd.Series(atr_values, index=ohlc.index, name="ATR")
 
 
-#
-#  Main
-#
-def main():
-    import sys
+def gATR(Ticker: str) -> pd.Series:
+    if DEBUG:
+        print("received ARGS", Ticker)
+
+    import yfinance as yf
+
+    history_days = max(DAYSBACK, Period * 3)
+    start_date = (
+        datetime.date.today() - datetime.timedelta(days=history_days)
+    ).isoformat()
+    data = yf.download(Ticker, start=start_date, progress=False)
+    if data.empty:
+        raise ValueError(f"No OHLC data returned for ticker {Ticker!r}")
+
+    data = data.sort_index()
+    atr = calculate_atr(data, Period)
+    if OutputFile:
+        output = data.copy()
+        output["ATR"] = atr
+        output.to_csv("ATR_tmpout.csv", encoding="utf-8")
+    if Print:
+        latest_atr = atr.iloc[-1]
+        if pd.isna(latest_atr):
+            raise ValueError(
+                f"Not enough OHLC rows for ticker {Ticker!r} "
+                f"to calculate a {Period}-period ATR"
+            )
+        print("<<<<< ATR >>>>> =", f"{latest_atr:.2f}")
+
+    return atr
+
+
+def main() -> None:
     if len(sys.argv) > 1:
-     ARG=sys.argv[1]
-     Tickers=ARG.split(",")
+        tickers: Sequence[str] = [
+            ticker.strip() for ticker in sys.argv[1].split(",") if ticker.strip()
+        ]
     else:
-        print("If no ARG working with ",tickersList)
-        import json
-        with open (tickersList,'r') as f:
-            Tickers = json.load(f)
-    gATR(Tickers)
+        print("If no ARG, working with", tickersList)
+        with tickersList.open("r", encoding="utf-8") as ticker_file:
+            tickers = json.load(ticker_file)
+
+    if not isinstance(tickers, list) or not all(
+        isinstance(ticker, str) and ticker.strip() for ticker in tickers
+    ):
+        raise ValueError("Ticker input must be a non-empty list of ticker symbols")
+    if not tickers:
+        raise ValueError("At least one ticker symbol is required")
+
+    for ticker in tickers:
+        gATR(ticker.strip())
+
+
 if __name__ == "__main__":
-    Print=True
+    Print = True
     main()
