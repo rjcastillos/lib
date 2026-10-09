@@ -36,6 +36,7 @@ Write every function, method, and event handler so a capable developer who is ne
 
 - Give each function one clear responsibility and a descriptive name that says what it does. Use clear parameter and local-variable names; avoid vague names and unexplained abbreviations.
 - Keep the function at one level of abstraction. Extract a meaningful, named helper when it clarifies a distinct step, but do not split simple logic into tiny functions that make readers jump around.
+- Split functions into separate files when they form distinct, cohesive responsibilities, are reused, or benefit from independent tests. Organize by domain or responsibility; do not create one file per function or split small, tightly related functions without a concrete benefit. Preserve the project's module system and loading constraints.
 - Make inputs, return values, and side effects apparent. Avoid surprising mutation, hidden dependencies on global state, and boolean parameters that make calls hard to interpret.
 - Prefer straightforward control flow over clever or compressed expressions. Reduce deep nesting when a clear early return or well-named helper makes the path easier to follow.
 - Handle invalid inputs and failure cases at the appropriate boundary. Keep error behavior explicit rather than silently swallowing failures.

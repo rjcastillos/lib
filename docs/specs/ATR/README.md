@@ -1,147 +1,212 @@
-## Technical Specification: Average True Range (ATR) Calculation
-The Average True Range (ATR) is a technical analysis indicator that measures market volatility by decomposing the entire range of an asset price for a given period. It was introduced by J. Welles Wilder Jr. in his 1978 book, New Concepts in Technical Trading Systems.
-------------------------------
+# Average True Range (ATR) Technical Specification
 
->Current working implementation in Python is located in /Users/ramon/Documents/DocsandMisc/github/projects/localbranching/Py/invesments/trader/tools/getAtr.py
-or in GitHub at https://github.com/rjcastillos/Py/blob/master/invesments/trader/tools/getAtr.py
-also copied to this repo at lib/python/getAtr.py
-                
+## Purpose
 
-## 1. Mathematical Formulas
-The ATR calculation consists of two primary steps: calculating the True Range (TR) for each period, and then calculating a smoothed moving average of those TR values over a specified lookback period ($n$).
-## Step 1: True Range (TR)
-The True Range is the greatest of the following three values:
+The Average True Range (ATR) is a volatility indicator introduced by J. Welles Wilder Jr. in *New Concepts in Technical Trading Systems* (1978).
 
-   1. HLD - Current High minus Current Low
-   2. Absolute value of Current High minus Previous Close
-   3. Absolute value of Current Low minus Previous Close
+ATR measures the average price movement of an asset over a specified lookback period, considering both intraperiod range and gaps between periods.
 
-$$\text{TR}_t = \max \left( (H_t - L_t), \vert{}H_t - C_{t-1}\vert{}, \vert{}L_t - C_{t-1}\vert{} \right)$$ 
-Where:
+ATR does not indicate trend direction. It measures only volatility.
 
-* 
-* $H_t$: High price of the current period
-* $L_t$: Low price of the current period
-* $C_{t-1}$: Close price of the previous period
-* 
+---
 
-## Step 2: Average True Range (ATR)
-The initial ATR value for the first $n$ periods is typically calculated as a simple arithmetic mean of the TR values:
-$$\text{ATR}_n = \frac{1}{n} \sum_{i=1}^{n} \text{TR}_i$$ 
-Subsequent ATR values are smoothed using Wilder’s smoothing technique (equivalent to a modified Exponential Moving Average):
-$$\text{ATR}_t = \frac{\text{ATR}_{t-1} \times (n - 1) + \text{TR}_t}{n}$$ 
-------------------------------
-## 2. Implementation in Python
-This implementation uses standard lists of dictionaries to avoid external library dependencies (like pandas or numpy), making it universally applicable.
+# Definitions
 
-def calculate_atr(data, period=14):
-    """
-    Calculates the Average True Range (ATR).
-    
-    :param data: List of dicts containing 'high', 'low', and 'close' prices.
-    :param period: The lookback period (default: 14).
-    :return: List of ATR values corresponding to the input data indices.
-    """
-    if len(data) < period:
-        return [None] * len(data)
-        
-    tr_values = []
-    atr_values = [None] * len(data)
-    
-    # Step 1: Calculate True Range (TR) for all periods
-    for i in range(len(data)):
-        if i == 0:
-            # First element has no previous close
-            tr = data[i]['high'] - data[i]['low']
-        else:
-            prev_close = data[i-1]['close']
-            tr1 = data[i]['high'] - data[i]['low']
-            tr2 = abs(data[i]['high'] - prev_close)
-            tr3 = abs(data[i]['low'] - prev_close)
-            tr = max(tr1, tr2, tr3)
-        tr_values.append(tr)
-        
-    # Step 2: Calculate Initial ATR (Simple Moving Average of TR)
-    initial_atr = sum(tr_values[:period]) / period
-    atr_values[period - 1] = initial_atr
-    
-    # Step 3: Calculate Wilder's Smoothed ATR for subsequent periods
-    for i in range(period, len(data)):
-        prev_atr = atr_values[i - 1]
-        current_tr = tr_values[i]
-        atr_values[i] = ((prev_atr * (period - 1)) + current_tr) / period
-        
-    return atr_values
-# --- Example Usage ---sample_prices = [
-    {"high": 50, "low": 45, "close": 48},
-    {"high": 52, "low": 47, "close": 51},
-    {"high": 53, "low": 49, "close": 50},
-    {"high": 55, "low": 51, "close": 54},
-    {"high": 56, "low": 52, "close": 53}
-]
-# Calculate with a period of 3 for demo purposes
-print("ATR Values:", calculate_atr(sample_prices, period=3))
+| Symbol | Description |
+|----------|-------------|
+| H(t) | High price of current period |
+| L(t) | Low price of current period |
+| C(t) | Close price of current period |
+| C(t-1) | Previous period close |
+| TR(t) | True Range |
+| ATR(t) | Average True Range |
+| n | ATR lookback period (default: 14) |
 
-------------------------------
-## 3. Implementation in JavaScript (ES6)
-This functional approach processes data arrays cleanly using native arrays.
+---
 
-/**
- * Calculates the Average True Range (ATR).
- * 
- * @param {Array<Object>} data - Array of objects containing high, low, and close.
- * @param {number} period - The lookback window (default: 14).
- * @returns {Array<number|null>} Array of ATR values matching the input index mapping.
- */function calculateATR(data, period = 14) {
-    if (data.length < period) {
-        return new Array(data.length).fill(null);
-    }
+# True Range Calculation
 
-    const trValues = [];
-    const atrValues = new Array(data.length).fill(null);
+For each period:
 
-    // Step 1: Calculate True Range (TR)
-    for (let i = 0; i < data.length; i++) {
-        if (i === 0) {
-            trValues.push(data[i].high - data[i].low);
-        } else {
-            const prevClose = data[i - 1].close;
-            const tr1 = data[i].high - data[i].low;
-            const tr2 = Math.abs(data[i].high - prevClose);
-            const tr3 = Math.abs(data[i].low - prevClose);
-            trValues.push(Math.max(tr1, tr2, tr3));
-        }
-    }
+```text
+TR(t) = max(
+    H(t) - L(t),
+    |H(t) - C(t-1)|,
+    |L(t) - C(t-1)|
+)
+```
 
-    // Step 2: Calculate first ATR instance
-    let sumTR = 0;
-    for (let i = 0; i < period; i++) {
-        sumTR += trValues[i];
-    }
-    let currentATR = sumTR / period;
-    atrValues[period - 1] = currentATR;
+For the first candle where no previous close exists:
 
-    // Step 3: Wilder's smoothing algorithm
-    for (let i = period; i < data.length; i++) {
-        currentATR = ((currentATR * (period - 1)) + trValues[i]) / period;
-        atrValues[i] = currentATR;
-    }
+```text
+TR(1) = H(1) - L(1)
+```
 
-    return atrValues;
-}
-// --- Example Usage ---const marketData = [
-    { high: 105, low: 100, close: 102 },
-    { high: 108, low: 103, close: 107 },
-    { high: 110, low: 106, close: 109 },
-    { high: 112, low: 108, close: 111 },
-    { high: 115, low: 110, close: 113 }
-];
+---
 
-console.log("ATR Results:", calculateATR(marketData, 3));
+# ATR Calculation
 
+## Initial ATR
 
-## Key Applications for Day Trading & Investing
+The first ATR value is calculated using a simple arithmetic average:
 
-* Stop-Loss Placement: Day traders typically use a multiple of the ATR (e.g., 1.5x or 2x ATR) to set trailing stop-losses. This ensures that normal market noise doesn't prematurely trigger an exit. Based on the current ATR, a 1.5x stop-loss requires a room of about $14.50 from your entry.
-* Intraday Profit Targets: With a daily expected movement of around $10.00, setting a single-session profit target much wider than this value requires an unusual, catalyst-driven breakout. [5] 
-* Position Sizing: High ATR values mean higher volatility. When the ATR expands, traders typically scale down their total share size to keep their dollar risk constant across trades.
+```text
+ATR(n) =
+(TR1 + TR2 + ... + TRn) / n
+```
+
+where n is the selected ATR lookback period.
+
+---
+
+## Subsequent ATR Values
+
+After the initial ATR is obtained, Wilder's smoothing method is used:
+
+```text
+ATR(t) =
+((ATR(t-1) × (n - 1)) + TR(t)) / n
+```
+
+This smoothing method reduces noise while maintaining responsiveness to volatility changes.
+
+---
+
+# Algorithm
+
+1. Calculate True Range for every candle.
+2. Calculate the average of the first n True Range values.
+3. Store this result as the first ATR value.
+4. Apply Wilder's smoothing to all subsequent periods.
+5. Return ATR values aligned with the source data index.
+
+---
+
+# Worked Example
+
+Input:
+
+| High | Low | Close |
+|------|------|------|
+| 105 | 100 | 102 |
+| 108 | 103 | 107 |
+| 110 | 106 | 109 |
+
+True Range values:
+
+```text
+TR1 = 105 - 100 = 5
+
+TR2 = max(
+108 - 103,
+|108 - 102|,
+|103 - 102|
+)
+= max(5, 6, 1)
+= 6
+
+TR3 = max(
+110 - 106,
+|110 - 107|,
+|106 - 107|
+)
+= max(4, 3, 1)
+= 4
+```
+
+For period = 3:
+
+```text
+ATR = (5 + 6 + 4) / 3
+ATR = 5
+```
+
+---
+
+# Trading Applications
+
+## Loss Protection
+
+ATR is commonly used to place stop losses that adapt to volatility.
+
+Examples:
+
+```text
+Stop Loss = Entry Price - (2 × ATR)
+```
+
+```text
+Trailing Stop = Highest Close - (3 × ATR)
+```
+
+## Profit Taking
+
+ATR may assist in estimating realistic profit objectives.
+
+```text
+Target = Entry Price + (2 × ATR)
+```
+
+ATR targets should be combined with:
+
+- Resistance levels
+- Fibonacci extensions
+- Supply zones
+- Risk/Reward objectives
+
+## Position Sizing
+
+Higher ATR values imply greater volatility.
+
+To maintain the same monetary risk per trade:
+
+```text
+Position Size = Maximum Risk / Stop Distance
+```
+
+Since stop distance often depends on ATR, position size naturally decreases when volatility rises.
+
+---
+
+# Implementation Requirements
+
+A compliant ATR implementation shall:
+
+1. Accept OHLC price data.
+2. Calculate True Range according to the specification.
+3. Use a configurable lookback period.
+4. Calculate the initial ATR using a simple average.
+5. Apply Wilder's smoothing thereafter.
+6. Return ATR values aligned with input records.
+7. Preserve numerical precision appropriate for the instrument traded.
+
+---
+
+# Complexity
+
+Time Complexity:
+
+```text
+O(n)
+```
+
+Space Complexity:
+
+```text
+O(n)
+```
+
+or
+
+```text
+O(1)
+```
+
+for streaming implementations.
+
+---
+
+# References
+
+- J. Welles Wilder Jr., New Concepts in Technical Trading Systems (1978)
+- ATR standard definition used throughout technical analysis platforms and charting systems
