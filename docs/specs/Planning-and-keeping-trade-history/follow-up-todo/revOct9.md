@@ -1,39 +1,9 @@
-Trade Planning Spec: Readiness Review
+Trade Planning Spec: Review
 10 Oct 2026 · @Ramon
 
-Verdict
-
-The spec is ready to start design, but not ready to implement everything. 
-
-The planner's calculation core can be built now. Persistence, CSV synchronization and the plan-to-position linkage need the resolutions below first.
-
-Only the README was reviewed. The linked contracts (portfolio-update, portfolio.md, Trades-window-with-filter, the DCA spec) were not attached, so anything depending on them is unverified. That includes the . ticker prefix, FIFO details, and whether the JSON schema tolerates extra fields.
-
-What is solid
-Every worked example in the spec re-computes correctly. The checks covered:
-• NVDA PT1 (237.1296) and the $571 sizing case: 24 / 5.71 = 4.2032 shares, notional $2,400, net P&L +45.23, -22.02, -25.00.
-• The $100 entry cases: 24 shares at SL1 and 4.8 shares at SL2.
-• ACRE: stop P&L -158.31, target P&L +94.69, reward/risk 0.598:1, ROI 19.43%.
-• YOC of 15.10% and both Fibonacci tables.
-The fee-aware sizing formula is internally consistent: the loss at the stop equals the risk budget exactly. The long-only boundary, the immutable ledger, and the separation of the two CSVs are also clear.
 
 
-## Document hygiene problems
-The README contradicts itself in places and repeats its rules, so it should be consolidated before design starts.
-• Several statements conflict and are resolved only by the line that clarifications supersede earlier wording. One example is whether the snapshot's quantity and basis come from the JSON; other "remains a decision" notes are scattered through the body.
-• The same rules appear three to four times (Fibonacci, plan selection, closure). The copies will drift apart.
-• There are no requirement IDs, so design and tests cannot trace back to a requirement.
-Consolidate into numbered requirements and delete the superseded wording.
-Proposed resolutions to the five listed decisions
-Each decision has a viable, mutually consistent resolution below.
-
-
-1. CSV sync and commit semantics
-• Environment: 
-Chromium desktop (Chrome or Edge) is the supported target for auto-append, since it needs the File System Access API. Serve the app from localhost or https, because behavior on file:// differs between browsers.
-
-• Other browsers: 
-Firefox and Safari work without auto-append. Pending rows stay queued, with a clearly labelled "download unsynced rows" fallback.
+1. CSV sync and commit semantic
 
 • Pending queue: 
 Every recorded execution goes into an IndexedDB queue holding its full row, keyed by ExecutionID. The queue survives reloads.
@@ -78,9 +48,8 @@ In CSV but not in JSON:
 • Remove the confluence criteria from acceptance.
 
 
-### Gaps not in the decisions list
+### New decisions' list
 
-### Eleven gaps are not covered by the spec's decision list, and they block implementation until decided.
 
 1. Plan lifecycle state machine and reconciliation. Closure is stored in IndexedDB but caused by a JSON ledger the planner may not have loaded. If the user never exports the JSON, or loads an older one, plans get stuck as linked or closed. Proposal: states are saved → linked-open → closed, and the stored flag is a cache. Recompute the state from the ledger whenever a portfolio loads, using the opening ExecutionID as the link. Provide an explicit, confirmed "release link" recovery action.
 
@@ -90,7 +59,7 @@ In CSV but not in JSON:
 
 4. Plan references on later rows. The spec says "when relevant" and leaves the rule open. Default-fill the lifecycle's Plan IDs on increases, reductions and closes, let the user clear them, and forbid any other plan.
 
-5. Quantity rounding. Default to fractional, matching the workbook. Add an optional per-plan "whole shares, round down" setting that re-checks the risk budget after rounding.
+5. Add an optional per-plan "whole shares, round down" setting that re-checks the risk budget after rounding.
 
 6. Missing validation rules.
  Funding > 0 and fees ≥ 0. 
@@ -107,10 +76,13 @@ In CSV but not in JSON:
 
 10. Strategy-allocation summary. It is described but has no placement or format. Specify where it appears, and group by currency since there is no conversion.
 
-11. Legacy REQ2 L/P columns. Retire them, since the spec only keeps them "unless there is a user need".
 
-Suggested gate
-Build the calculation core now; hold Positions integration and the CSV sidecar until the gaps above are decided.
-• Build now: the REQ1 calculation engine, scenarios, Fibonacci helper, and plan CRUD with revisions and backup/restore. Settle gap items 6 to 8 first.
-• Design after the gap items are decided: Positions integration, the CSV sidecar, and plan-closure locking.
-• Spike first: File System Access append behavior, including large files, Excel locks, and permission persistence.
+
+## Document hygiene problems
+The README contradicts itself in places and repeats its rules, so it should be consolidated before design starts.
+• Several statements conflict and are resolved only by the line that clarifications supersede earlier wording. One example is whether the snapshot's quantity and basis come from the JSON; other "remains a decision" notes are scattered through the body.
+• The same rules appear three to four times (Fibonacci, plan selection, closure). The copies will drift apart.
+• There are no requirement IDs, so design and tests cannot trace back to a requirement.
+Consolidate into numbered requirements and delete the superseded wording.
+
+
