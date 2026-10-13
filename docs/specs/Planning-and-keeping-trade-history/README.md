@@ -27,31 +27,17 @@ Related contracts:
 - Preserve calculation accuracy and make assumptions, commissions, dates, and currencies visible.
 - Compare multiple user-defined exit scenarios and their estimated financial outcomes without implying that any target or stop will execute automatically.
 
-## Confirmed release clarifications
+## Release decision summary
 
-- **NVDA target example:** The correct entry is `$232.48`. At the default `PT=2%`, PT1 is `$237.1296`, displayed as `$237.13`; the user-entered resistance candidate PT2 is `$243.38` on the `1 Day` chart interval.
-- **Direction scope:** The new planning and snapshot workflow is long-only for this release. Short-sale support is deferred to a future release. This does not change short accounting already supported by the existing positions page or erase historical short executions.
-- **Immutable executions:** Once a real execution is recorded in the portfolio JSON, its execution row is immutable. Open, increase, reduction, and close activity is represented by appending new rows; changing a plan or closing a position never edits or removes a recorded execution. Derived aggregate fields such as open quantity and average basis may still be recalculated from the ledger.
-- **Two distinct CSV workflows:** Preserve the existing user-requested CSV from the Positions trade-history dialog. It remains a filtered, spreadsheet-friendly view for inspecting and auditing loaded portfolio history; its save location is selected through the browser's download workflow. The new execution-history CSV is a separate system-maintained append log, updated for each newly recorded execution, including reductions and closes. It is not a replacement for or repurposing of the existing export.
-- **Plan storage and strategy purpose:** Plans are planning records in the new plan page, not executions. Multiple plans may exist for the same ticker, each with its own criteria and stable Plan ID; a plan-originated opening execution records its Plan ID and the exact Plan Revision ID used. A user may record an execution without a plan. Strategies classify capital allocation and remain unchanged for the lifetime of an open position.
-- **Adjustable planning inputs and defaults:** Funding in currency, risk tolerance/budget in percent, PT1 in percent, and exit fee in currency are user-editable plan inputs. Defaults must appear as actual field values when the page loads, not only as placeholders. Initial defaults are `$2,500` funding, `1%` risk tolerance, `2%` PT1, and `$1.00` exit fee for a USD plan. The exit fee may be set to `$0`; a nonzero fee is included in scenario P&L and planned quantity sizing. Save the values and defaults used with each plan revision.
-- **ATR and ATRP inputs:** In this release, the user supplies ATR as an absolute price distance and ATRP as a percentage. Apply the documented formulas to those inputs; do not fetch or calculate them from market history. Modernizing `python/getAtr.py` or connecting it to the page is out of scope.
-- **Stop scenarios:** Support `SL1` through `SLn`, just as the planner supports `PT1` through `PTn`. `SL1` is derived from risk tolerance; additional stops may be entered as explicit prices or derived from supplied ATR/ATRP values. Show sizing and outcomes for each candidate rather than treating alternative stops as live orders.
-- **Plan selection from Positions:** For a selected portfolio JSON ticker that does not start with `.`, offer matching plans when no position is open. The user may select a plan to prefill an opening execution and must confirm actual values. The new execution stores the plan's Plan ID and selected revision ID in portfolio JSON. Do not retrofit these links to older executions or attach a new plan to an already-open unlinked position. Reductions and closes are allowed without choosing or linking a plan; if no suitable plan applies, the new execution has no plan reference.
-- **Plan-to-position cardinality and closure:** A plan may be associated with at most one position lifecycle, and an open position lifecycle may be associated with at most one plan. This lifecycle association is established by the opening execution. A reduction or close execution may omit the plan reference when no suitable plan applies; this does not undo the opening lifecycle association. The plan's `positionClosed` flag is set when its linked position reaches zero; a closed plan becomes read-only and cannot be used to open another position. An unexecuted plan is not considered closed.
-- **Unsaved plan drafts:** The new-plan page keeps edits only in page memory until the user explicitly chooses **Save Plan** (or the equivalent record action). Do not autosave new plans or unsaved edits/notes to IndexedDB, local storage, or another persistence layer. Warn before navigation, reload, or closing the tab while there are unsaved changes; a browser crash may still lose the draft, so the user must re-enter it.
-- **Persisted plan notes:** A saved plan includes an editable free-text notes/comments field, available from a popup dialog. Notes become persistent only when the user explicitly saves the plan/revision.
-- **Profit-taker and stop-loss candidates:** Organize levels as `PT1...PTn` and `SL1...SLn`. Profit takers include percentage-derived PT1, manually observed resistance prices, selected Fibonacci extension levels, and manually observed trend-line prices. Stop candidates include risk-derived SL1, manually observed support prices, selected Fibonacci retracement levels, and ATR/ATRP-derived distances. Every candidate retains its source and applicable chart interval/as-of timestamp.
-- **VWAP:** Add manually observed VWAP as contextual chart-indicator data, like RSI; retain the value, chart interval, and observation date/time. It is not itself an automatic PT or SL candidate and does not trigger a scenario.
-- **Fibonacci helper:** Provide an accessible popup tool that calculates long Fibonacci extension and retracement levels using ratios `0.236`, `0.382`, `0.50`, `0.618`, `0.65`, `0.764`, `1.00`, and `1.20`. Extension requires Points A, B, and C; retracement requires A and B. The user may select calculated extensions as PT candidates and retracements as SL candidates; calculation alone does not persist a plan or level.
-- **Plan closure and locking:** Keep plan closure state in the planning store. When the linked position is fully closed, mark the plan's position as closed and make that plan read-only. Unexecuted plans remain editable; an open linked position does not itself lock the plan.
-- **IndexedDB portability:** Provide an explicit export of saved planner data to a versioned JSON backup file and a matching import/restore flow. This is an application-level portable representation of the supported records, not a copy of the browser's raw IndexedDB files. The user can save the backup to disk and load it in another browser/profile or on another computer. Restoring replaces existing local portable planner data only after preview and explicit confirmation; it is not a merge. Browser-specific file handles and permissions are not portable, and portfolio JSON and execution-history CSV remain separate files that the user must move separately when needed.
-- **Execution-history CSV ownership:** The app appends to a user-selected CSV automatically while browser file permission is available. The user is responsible for opening it in spreadsheet software and managing its location, backup, retention, and sharing. Permission and browser support remain technical constraints; the CSV is not the existing filtered Positions download.
-- **Trend-line observation:** A trend-line input is a manually observed price point from a chart, recorded with its chart interval (for example, `1 Day`) and observation time/source. It is not a chart object drawn or automatically detected by this feature.
-- **SniperNine:** Describe it as an automated, proprietary strategy whose performance is currently being tested. This is descriptive only: the planner does not execute the strategy or imply that its performance is established.
-- **Fibonacci extensions:** When a Fibonacci extension calculation is shown, present all eight levels, in order: 23.6%, 38.2%, 50%, 61.8%, 65%, 76.4%, 100%, and 120%. The 61.8% and 65% levels are distinct requested options.
+This summary is an index, not a second requirements source. Requirement IDs in REQ1–REQ4 below are authoritative; acceptance criteria reference those IDs.
 
-These clarifications supersede any conflicting earlier wording in the requirements and the open-questions list below.
+- Planning is long-only; portfolio JSON remains the execution source of truth and its execution rows are immutable.
+- Plans, revisions, notes, candidate levels, and helpers follow the explicit save, lifecycle, and calculation requirements in REQ1.
+- The open-position snapshot and currency-separated strategy allocation view follow REQ2 and use loaded portfolio data.
+- Preserve the existing filtered Positions CSV. A separate persistent execution CSV follows REQ3 and records actual executions only.
+- Portable planner backup is user-driven versioned JSON; no cross-device automatic sync, market data, brokerage, or automatic order execution is introduced.
+- NVDA example: entry `$232.48`, PT1 `$237.13` at 2%, resistance PT2 `$243.38` on `1 Day`.
+Detailed requirements and acceptance checks below are authoritative; avoid restating them here.
 
 ## Current state and release boundary
 
@@ -87,18 +73,9 @@ Changes to the existing positions page should extend its established workflow ra
 
 Any new page and all added sections should follow the existing pages' visual language: centered content around the current 1100px maximum width, pale gray page background, white rounded content surfaces, the existing system font stack, navy/blue actions, muted field labels, and consistent tables, spacing, and focus indicators. Reuse the responsive grid and mobile stacking behavior; long tables may scroll horizontally rather than force page-wide overflow. Keep controls keyboard-accessible and label fields and live status messages. Match the current design patterns without requiring an unrelated CSS refactor.
 
-### Plan storage, execution links, and strategy allocation
+### Design boundary
 
-- Persist full plan records in IndexedDB, separately from the execution ledger, while storing a stable `PlanID` and the exact `PlanRevisionID` used on new plan-originated executions in `portfolio.json`. Multiple plans may exist for one ticker; each plan record contains its own criteria and ticker. A plan and a position lifecycle are linked one-to-one. Older execution rows remain unlinked; do not assign or infer plan links retroactively.
-- Keep saved plan revisions so later edits cannot erase criteria used for earlier review. When a selected plan is used to record an opening execution, include its Plan ID and the exact revision ID used. Subsequent execution rows for that position may retain the same references when relevant, but do not require a plan selection or link for reductions or closes; the user may leave the plan reference blank if no available plan applies. Never substitute a different plan for an already-open position. Plan edits create later revisions and do not change the revision referenced by the opening execution. A plan may remain editable while its linked position is open. When the position reaches zero, set the plan-domain closed flag based on the linked position lifecycle and make the plan read-only, even if the closing execution itself has no Plan ID; an unexecuted plan remains editable.
-- When a selected real ticker (not dot-prefixed) has multiple plans and no open position, let the user choose the matching plan. Prefill appropriate opening fields, but require confirmation of actual quantity, execution price, date, fees, and strategy before recording. A plan does not place an order, and actual values may differ from its estimates. Do not attach a plan to a position that is already open or link a second plan to one position.
-- Use the Plan ID and opening Plan Revision ID on the lifecycle opening execution to review the exact plan criteria alongside position history. An individual reduction or close execution may have no plan reference, and that does not remove the lifecycle-level link established at opening. Do not claim a plan association for older executions, an opening execution recorded without selecting a plan, or an individual management execution left unlinked.
-- Treat strategy as a capital-allocation classification, separate from Plan ID and execution identity. A position keeps the strategy chosen when it is opened until that position is fully closed; additions and reductions do not change it. A subsequent position opened after closure may use another strategy. Attribute the remaining open basis and portfolio-derived long dividend projections to that position strategy; show shorts and non-dividend assets separately or as not applicable rather than as positive dividend income.
-- Strategy `SniperNine` is an automated, proprietary strategy under performance testing; do not present its performance as established or imply that this planning feature runs it.
-- **IndexedDB behavior and example:** IndexedDB is a browser-provided structured database API, not a third-party service or an ordinary plain-text file. A database such as `TradePlanner` could contain a `plans` object store keyed by `planId`, with ticker, current criteria, saved revisions (each with a stable revision ID), position-closed flag, and timestamps; a `settings` store may hold the selected CSV file handle and pending append status. The browser stores data in its own internal format and manages persistence, indexes, and transactions. Requested records are materialized as JavaScript objects in page memory; the app need not load the entire database. Saved records are scoped to the app origin and browser profile, survive page reloads, tab closure, and browser restarts, and are not shared across profiles/devices. They may still be removed or become unavailable through site-data clearing, private-browsing cleanup, browser policies, or storage failures. See [Persistence and migration](#persistence-and-migration) for save and retention behavior and the portable backup requirements.
-- **CSV responsibility:** After the user selects/creates the separate execution-history CSV and grants file access, the app appends newly recorded execution rows automatically while permission is available. The user is responsible for opening the CSV in spreadsheet software and managing its location, backup, retention, and sharing. The app must explain permission requirements and report append or permission failures; it must not silently overwrite the file. This does not change the existing user-triggered filtered history download.
-- **Trend-line input:** Store a manually observed chart price point with the asset, chart interval, observation date/time, and source/context. Use the supported chart interval labels, such as `1 Day`. The feature does not draw or automatically detect trend-lines.
-- **Proposed local implementation:** Use IndexedDB for plan records, revisions, the closed flag, selected-file handle, and pending synchronization/recovery metadata. Keep Plan IDs, Plan Revision IDs, and execution IDs distinct. New plan-originated opening executions carry the Plan ID and Plan Revision ID selected at opening. Later executions may carry those same references, but reductions and closes are valid without any plan reference; legacy executions are not retroactively assigned plan references.
+Implementation details and user-visible behavior are specified once in REQ1–REQ4. Use those requirements for plan revision/lifecycle rules, plan selection, strategy allocation, IndexedDB persistence and portability, execution CSV setup/recovery, and cross-tab state. The portfolio-update specification and JSON schema define the existing execution accounting contract; this document does not duplicate that contract.
 
 ## Terminology
 
@@ -112,12 +89,14 @@ Any new page and all added sections should follow the existing pages' visual lan
 | **Realized P&L** | P&L attributable to executed reductions or closes, including the applicable execution commissions. |
 | **Unrealized P&L** | An estimate based on an open position and a user-provided current/exit price; it is not realized until an exit is recorded. |
 | **Plan ID** | Stable identifier for a plan record tied to a ticker and criteria history. It is stored on new plan-originated portfolio executions and is distinct from an execution identifier. |
-| **Plan Revision ID** | Stable identifier for one saved version of a plan's criteria. The opening execution stores the revision used; later events may repeat that reference but reductions and closes may omit it. |
+| **Plan Revision ID** | Stable identifier for one saved version of a plan's criteria. The opening execution stores the revision used; later events copy that reference by default, but the user may clear it together with the Plan ID. |
 | **Execution ID** | Stable identifier for one individual execution, used for execution-history CSV synchronization and duplicate prevention. It is distinct from Plan ID and Plan Revision ID. |
 
 ## Requirements
 
-### REQ1 — Evaluate a proposed trade
+### REQ1 — Evaluate and manage a proposed trade
+
+#### REQ1-01 — Inputs, fees, defaults, and validation
 
 The planner shall let the user enter and review the following inputs and calculated values:
 
@@ -126,27 +105,52 @@ The planner shall let the user enter and review the following inputs and calcula
 | Funding | Capital amount used by the plan | User-editable currency amount; new plans default to `$2,500` |
 | Loss tolerance / risk budget | Percentage of funding that defines maximum planned loss | User-editable percentage; defaults to `1%`. Show both the percentage and derived currency risk budget |
 | PT1 | First profit taker price, calculated above entry | User-editable percentage; defaults to `2%` |
+| Entry fee | Estimated opening commission/fee | User-editable currency amount; defaults to `0` |
 | Estimated exit fee | Estimated fee for the planned exit | Optional, user-editable currency amount; defaults to `1.00` in the selected plan currency (`$1.00` for USD), and `0` is valid. Include it in net scenario P&L and risk-based quantity sizing. |
 | Asset/ticker and direction | Instrument and proposed side | Long only in this release; short-sale planning is deferred |
 | Entry price | Planned entry price per unit | User-entered |
 | ATR and ATR percentage | Volatility values included by the workbook | Store/display their value, date, and source; do not imply they are live unless refreshed |
 | Stop | Planned stop price | Distinguish calculated/ideal stop from a user-entered realistic or predicted stop |
 | Profit target | Planned exit target | Distinguish calculated/ideal target from a user-entered realistic target |
-| Quantity | Proposed position size | Show whether fractional units are supported and how quantity is rounded |
-| Fees | Estimated commissions/fees where applicable | Show each assumption and include it consistently in estimates; REQ1's confirmed legacy fee is an editable exit-fee input defaulting to 1.00 in the selected plan currency |
+| Quantity | Proposed position size | Fractional by default; optional whole shares rounded down |
+| Fees | Estimated commissions/fees where applicable | Show each assumption and include it consistently in estimates |
 | Estimated outcomes | Risk, reward, P&L, reward/risk, and ROI | Label as estimates, not actual performance; display reward/risk as a ratio and ROI as a percentage for supported long scenarios |
 
-The planner shall preserve inputs and outputs when the user explicitly saves the plan or a revision. Editing a plan must not modify an already recorded execution. A new plan and edits to a saved plan remain in page memory until the user activates **Save Plan** / **Save Revision**; do not persist unsaved state in IndexedDB, local storage, or another mechanism. Populate new-plan fields on page load with defaults: `$2,500` funding, `1%` risk tolerance, `2%` PT1, and `1.00` exit fee in the plan currency (`$1.00` for USD). These are visible field values that users can change, not placeholder text. An exit fee of zero is valid. Store inputs with each explicitly saved plan revision.
+Funding must be greater than zero; risk tolerance must be between 0 and 100 percentage points inclusive; fees must be finite and nonnegative; entry price must be positive. All plan amounts use the plan's declared currency without conversion. When a plan is selected for a portfolio ticker, its currency must match the ticker's portfolio currency before plan-to-position linkage or snapshot calculations are allowed. A plan that is not linked to portfolio activity may be edited in its own declared currency.
+
+New plans show editable field defaults of `$2,500` funding, `1%` risk tolerance, `2%` PT1, `0` entry fee, and `1.00` exit fee in the plan currency (`$1.00` for USD). These are field values, not placeholders. Save all input assumptions with every saved revision.
 
 Warn the user before leaving, reloading, or closing the tab when an unsaved plan or revision has changes. This warning is best-effort and cannot prevent data loss from browser crashes or forced termination; in that case the user must re-enter the unsaved information.
 
 Provide a **Notes/Comments** action that opens a popup dialog containing an editable free-text field for rationale, observations, or comments. Notes are part of the plan revision and persist only when that plan or revision is explicitly saved. Editing the note alone does not save it.
 
+#### REQ1-02 — Saved plan management and concurrent editing
+
+Unsaved drafts and edits remain in page memory only. Saved revisions are immutable; **Save Revision** creates a new revision and never overwrites an earlier revision. Save the plan record and revision in one IndexedDB transaction. On failure, report that the save did not complete and retain the draft in memory where possible.
+
+When two tabs edit the same plan, use the revision count (or equivalent persisted version) loaded when editing began as an optimistic concurrency check. If it changed before save, reject the stale write, preserve the local draft, and ask the user to reload or reconcile; do not silently overwrite another tab's revision. Broadcast plan save, archive, and lifecycle changes to same-origin planner/Positions tabs using `BroadcastChannel`; messages notify other tabs to refresh from IndexedDB and the latest loaded portfolio ledger, and are not a persistence source themselves.
+
+Unexecuted plans may be deleted after confirmation or archived. Archive hides a plan from normal active-plan selectors while retaining it for review and permitting explicit unarchive. A plan with any linked opening execution cannot be deleted or archived, including after closure. A closed plan may be duplicated as a new, unlinked plan with a new Plan ID; its copied content begins a new revision history.
+
+#### REQ1-03 — Plan lifecycle and closure reconciliation
+
+Use lifecycle states `saved`, `linked-open`, and `closed`. The opening execution is the authoritative link: a new opening selected from a plan stores `PlanID` and `PlanRevisionID` and the plan store retains its `OpeningExecutionID`. Never link a second plan to the same position lifecycle.
+
+Whenever a portfolio JSON ledger is loaded or changed, recompute linked lifecycle state from that ledger and the opening `ExecutionID`; treat the stored `positionClosed`/lifecycle value in IndexedDB only as a cache. A matching open lifecycle means `linked-open`; a matching fully closed lifecycle means `closed`. If the linked opening execution is absent from the loaded ledger, do not infer closure or reuse the plan: show a mismatch requiring review. A confirmed **Release Plan Link** recovery action may clear a stale local association only when the opening execution is absent from the selected ledger; it does not modify portfolio JSON, remove immutable execution references, or make an executed plan eligible for deletion or reuse. A genuinely closed plan remains read-only; use duplicate-as-new to create another plan.
+
+#### REQ1-04 — Cross-page portfolio state
+
+Open the planner from Positions in a new tab so the Positions page and its unsaved in-memory portfolio are not discarded by navigation. Warn before unloading Positions when its portfolio has unexported changes. Establish a same-origin `BroadcastChannel` handshake so the tabs can exchange the current portfolio snapshot and subsequently notify each other about portfolio changes, plan links, and confirmed lifecycle transitions. Treat the currently loaded JSON and IndexedDB as the respective sources of truth; a channel message is only a refresh/update signal and cannot mark JSON exported or bypass the save/validation rules.
+
+#### REQ1-05 — Sizing and quantity mode
+
 Enter and display percentage fields in percentage points (`1` means `1%`), then convert once for calculations: `RiskFraction = RiskTolerancePercent / 100` and `PTFraction = PTPercent / 100`. Thus `RiskBudget = Funding * RiskFraction`, `SL1 = EntryPrice * (1 - RiskFraction)`, and `PT1 = EntryPrice * (1 + PTFraction)`.
 
-Use the plan's currency and do not convert currencies. Include the optional exit fee in estimated net P&L and in risk-budget sizing. With risk budget `R`, optional entry fee `F_in` (zero when absent), exit fee `F_out`, entry price `E`, and selected stop `SL`, calculate risk-limited quantity as `(R - F_in - F_out) / (E - SL)` when `E > SL` and `R > F_in + F_out`. Also constrain quantity so planned entry investment does not exceed funding: `Q_funding = (Funding - F_in) / E`; the allowed quantity for that stop is the smaller of the risk-limited and funding-limited quantities. If the exit fee is omitted, treat it as `$0` (or zero in the selected currency); if fees consume the risk budget or funding, or either denominator is invalid, show a validation/unavailable state rather than zero or negative quantity. Keep fractional quantity unless a separate rounding rule is selected.
+Include entry and exit fees in estimated net P&L and risk-budget sizing. With risk budget `R`, entry fee `F_in`, exit fee `F_out`, entry price `E`, and selected stop `SL`, calculate risk-limited quantity as `(R - F_in - F_out) / (E - SL)` when `E > SL` and `R > F_in + F_out`. Also constrain quantity so planned entry investment does not exceed funding: `Q_funding = (Funding - F_in) / E`; the allowed quantity for that stop is the smaller of the risk-limited and funding-limited quantities. Fees that exhaust the risk budget or funding, or invalid denominators, produce a clear validation/unavailable state rather than zero or negative quantity.
 
-#### REQ1 exit scenarios
+Quantity is fractional by default. Each plan may instead select **Whole shares (round down)**; floor each stop scenario's allowed quantity to a whole share and recalculate investment, P&L, ROI, and reward/risk using that rounded quantity. Confirm the rounded quantity remains within funding and risk-budget limits. Persist the quantity mode in each plan revision.
+
+#### REQ1-06 — Profit and stop candidates
 
 The planner shall compare potential exit scenarios using the proposed entry, quantity, fees, and currency. Every calculated level and outcome is an estimate; the page does not retrieve chart levels, place orders, or guarantee an exit.
 
@@ -167,6 +171,8 @@ The planner shall compare potential exit scenarios using the proposed entry, qua
   - Long: `SL1 = EntryPrice * (1 - RiskFraction)`
   - This release supports long scenarios only. Short-sale stops are deferred to a future release.
 - Support optional additional stop-loss candidates `SL2...SLn`; each retains its source, chart interval, and observation date/time when applicable.
+- Limit each plan to at most 10 PT candidates and 10 SL candidates, including PT1 and SL1. Explain the limit when reached.
+- Every stop candidate must be below the positive entry price. Flag any PT candidate at or below entry and exclude it from positive-reward comparisons until corrected or removed.
 - **Support:** let the user enter an observed support price and interval as an optional SL candidate.
 - **Fibonacci retracement:** for the long-only helper, Point A is the swing low and Point B is the swing high. For each ratio `r`, calculate `SL = B - (B - A) * r`. The user chooses which levels to add to `SL2...SLn`; none are automatically selected. Store the selected level's ratio, A/B prices, chart interval, and observation date/time/source with the plan revision.
 - **ATR/ATRP distances:** allow the user to enter ATR and ATRP as optional alternative stop distances and show the resulting stop price and estimated net loss when each is applied:
@@ -190,13 +196,14 @@ The planner shall compare potential exit scenarios using the proposed entry, qua
 - Show outcome in currency and percentage where applicable. Use fee-inclusive P&L and clearly labeled ROI/reward-risk formulas defined in this spec.
 - Validate target/stop ordering and reject zero or negative risk distances before presenting reward/risk. Display unavailable rather than a misleading number when a denominator is zero or a scenario has no positive reward.
 
-**Manual technical-indicator readings**
+#### REQ1-07 — Contextual indicators and distance display
 
 - **RSI (Relative Strength Index):** A momentum oscillator used as technical-analysis context. The user enters the observed RSI reading, from `0` through `100`, along with its chart interval and observation date/time. The page does not calculate RSI.
 - **EMA (Exponential Moving Average):** The user may enter the observed EMA price/level for periods `9`, `100`, and `200`. Store the period, observed price/level, chart interval, and observation date/time. These are manually supplied indicator readings; the page does not calculate EMA or infer it from a single current asset price.
 - **VWAP (Volume Weighted Average Price):** Let the user enter the observed VWAP price/level as contextual chart-indicator data, with chart interval and observation date/time. Do not calculate or fetch VWAP, or automatically use it as a PT or SL candidate.
 - Label this field **Chart interval** and use only these supported values: `1 Week`, `1 Day`, `4 Hours`, `1 Hour`, `30 min`, and `5 min`. Use these exact labels consistently for resistance, support, Fibonacci inputs, trend-line observations, RSI, EMA, VWAP, ATR, and ATRP data where an interval is applicable. Do not show alternate labels or duplicate equivalents.
-- Display the supplied readings as user-provided context with chart interval and observation date/time. Comparisons with entry, targets, or stops are qualitative confluence only; do not infer a win probability or guaranteed result.
+- Store observation timestamps as ISO 8601 date-time strings with their UTC offset. Display manually supplied readings with their chart interval and observation time.
+- Display price-valued PT/SL candidates and price-valued EMA/VWAP readings side by side with their percentage distance from entry: `abs(ObservedPrice - EntryPrice) / EntryPrice * 100`. This is descriptive context only. Do not automatically detect confluence, calculate win probability, or imply a guaranteed result. RSI is not a price and has no entry-price distance.
 
 #### Candidate inventory
 
@@ -210,7 +217,7 @@ The planner shall compare potential exit scenarios using the proposed entry, qua
 | Stop losses `SL1...SLn` | Support (`SL2...`) | User-entered observed price, chart interval, and as-of time. |
 | Stop losses `SL1...SLn` | Fibonacci retracement (`SL2...`) | User selects one or more calculated retracement levels from the popup helper. |
 | Stop losses `SL1...SLn` | ATR / ATRP (`SL2...`) | User-entered volatility distances derive alternative stop prices using the specified formulas. |
-| Contextual indicators | RSI, EMA 9/100/200, VWAP | User-entered chart readings for context and qualitative confluence only; they do not automatically create or trigger PT/SL candidates. |
+| Contextual indicators | RSI, EMA 9/100/200, VWAP | User-entered readings only; they do not automatically create or trigger PT/SL candidates. Price-valued readings may show percent distance from entry; RSI does not. |
 
 All items in this table are candidate estimates or observed context, not orders. Each selected PT/SL candidate is stored with source and applicable interval/time in the explicitly saved plan revision.
 
@@ -219,6 +226,7 @@ All items in this table are candidate estimates or observed context, not orders.
 - Provide a separate, keyboard-accessible popup dialog for calculating Fibonacci levels. The helper operates on manually entered prices and does not fetch chart data.
 - Extension inputs: Point A (swing low), Point B (swing high), and Point C (pullback low). For each listed ratio `r`, calculate `ExtensionLevel = C + (B - A) * r`.
 - Retracement inputs: Point A (swing low) and Point B (swing high). For each listed ratio `r`, calculate `RetracementLevel = B - (B - A) * r`.
+- Validate extension inputs as finite positive prices with `A < C < B`; validate retracement inputs as finite positive prices with `A < B`. Do not calculate or add levels when these ordering rules fail.
 - Use these ratios for both tools, in this order: `0.236`, `0.382`, `0.50`, `0.618`, `0.65`, `0.764`, `1.00`, and `1.20`. Clearly label the results as extension or retracement percentage.
 - Allow the user to select calculated extension levels as PT candidates and retracement levels as SL candidates. Selecting a level adds it to the unsaved plan in page memory; the user must explicitly save the plan/revision to persist it. Calculation or selection in the popup alone must not write plan data to IndexedDB.
 - Display the entered Point values and chart interval/as-of information with results. For example, with extension A=`100`, B=`120`, C=`110`, levels are `114.72`, `117.64`, `120`, `122.36`, `123`, `125.28`, `130`, and `134`. With retracement A=`100`, B=`120`, levels are `115.28`, `112.36`, `110`, `107.64`, `107`, `104.72`, `100`, and `96`.
@@ -229,6 +237,8 @@ The REQ1 workbook used the adjustable risk-tolerance percentage for both maximum
 
 ### REQ2 — Record and track an open position
 
+#### REQ2-01 — Snapshot source and plan scenario selection
+
 - REQ2 is an open-position snapshot: it shows current open quantity, entry basis, stop/target scenarios, and estimates while the position is open. It is not the historical record and shall not be used to reconstruct closed activity.
 - Load the user's selected portfolio JSON using the same local file-selection workflow as the existing browser pages. Do not assume access to a repository file path or silently write changes back to the selected file.
 - Use the selected portfolio data for ticker identity, currency, `Div`, `Periodicity`, and current position basis. Calculate YOC as specified below; do not use the old external dividend workbook or its cached values.
@@ -236,13 +246,15 @@ The REQ1 workbook used the adjustable risk-tolerance percentage for both maximum
 - A user shall explicitly record an actual execution; saving or approving a plan alone shall not open a position.
 - Actual executions shall use the existing append-only portfolio ledger and accounting rules in [the position specification](../portfolio-update/README.md).
 - Treat open quantity and average basis as read-only values derived from the selected portfolio JSON execution ledger; do not create editable duplicate position balances in the snapshot.
+- For an open long position, set snapshot quantity to the ledger's open quantity and `EP` to its current fee-inclusive `Positions[0].AvgPrice`. Snapshot `EntryFee` is `0`, because opening commissions are already included in that average basis; do not charge them a second time. Use the user-editable estimated exit fee for the projected exit.
+- For a plan-linked open position, show stop/target candidates from the exact plan revision referenced by the opening execution by default. Let the user explicitly select a later saved revision for comparison; label that it is not the revision used to open. Additional ad-hoc levels in the snapshot are in-memory only and do not alter or revise the saved plan.
 - The UI shall show the current direction, open quantity, average basis, invested basis/proceeds, and realized P&L using the existing position behavior.
 - Stop and target values originating from a plan may be shown as reference levels, but shall not be represented as executed orders or guaranteed exits.
 - The user shall be able to record a partial reduction or full close. The history must retain each execution rather than overwrite the opening record.
 - Estimated/unrealized values shall be labelled separately from realized P&L. Any estimate based on a manually entered market/exit price shall display the price used and the applicable fee assumption.
-- Keep strategy as capital-allocation classification, not as a plan or execution identifier. A selected Plan ID is stored on a plan-originated opening execution. Later reduction/close events may omit plan references without changing the position lifecycle link established by that opening event; do not infer or backfill links for older executions.
+- Keep strategy as capital-allocation classification, not as a plan or execution identifier. A selected Plan ID is stored on a plan-originated opening execution. Later rows for its lifecycle copy the opening `PlanID` and `PlanRevisionID` by default; the user may clear both on a reduction or close. Never attach a different plan to that lifecycle or backfill references to older executions.
 
-#### REQ2 reward/risk, ROI, and YOC
+#### REQ2-02 — Reward/risk, ROI, and YOC
 
 - Keep the stop and target scenario P&L calculations net of entry and estimated exit fees:
   - `Investment = Q * EP + EntryFee`
@@ -259,19 +271,26 @@ The REQ1 workbook used the adjustable risk-tolerance percentage for both maximum
   - Show `N/A` when the ticker cannot be matched, dividend data is invalid/missing, or basis is unavailable; do not use stale workbook lookup results or imply the dividend is guaranteed.
   - Use the portfolio currency for display, defaulting to USD only according to existing portfolio-page compatibility behavior. Do not convert currencies.
 
+#### REQ2-03 — Strategy allocation summary
+
+Show the strategy-allocation summary on the Positions page below the portfolio controls and above the execution table. Group first by currency, then by strategy. Each group shows open-position count, remaining open basis, and portfolio-derived dividend projections. Show per-cycle projections separated by payout periodicity rather than combining unlike cycles; show an annual projection separately when schedules are valid. Keep shorts, non-dividend positions, and unsupported periodicity visibly separate or `N/A`. Do not combine unlike currencies or represent dividend projections as guaranteed income.
+
 ### REQ3 — Review completed activity
+
+#### REQ3-01 — Execution ledger and plan references
 
 - Users shall be able to review the executions and dates that produced a position, including partial reductions and the final close.
 - Store history separately from the REQ2 open-position snapshot. The history is transaction-level and append-only; retain the existing execution-ledger rules for recording executions and deriving realized P&L. The portfolio JSON execution ledger remains the source for position calculations.
 - Preserve the existing Positions trade-history CSV: it is generated at the user's request from the currently filtered history view and downloaded through the browser. Its purpose remains reviewing, filtering, and auditing loaded portfolio data. The table and export shall continue to show the same filtered records. Additional fields may be added where they improve this audit purpose, but this export is not the persistent execution-history log.
 - Maintain a second, persistent, system-maintained CSV history log for actual executions. After initial storage setup, append a record when an execution is recorded in Positions, including opening/increase executions, partial reductions, and full closes. Do not append a row for a plan, estimate, failed validation, or cancelled action. The log retains activity after a position becomes flat.
 - Recorded execution rows in portfolio JSON are immutable. A reduction, close, plan edit, or history export must never alter or remove an earlier execution. Derived aggregate fields may be recalculated from the immutable ledger.
-- The portfolio JSON execution ledger remains the source for position calculation and accounting. The persistent CSV is a durable companion log; give each new execution a stable `ExecutionID` separate from `PlanID` and `PlanRevisionID`, and use it for append/duplicate-prevention so a retry cannot create duplicate history rows. Existing executions without an `ExecutionID` may be assigned repeatable migration identities in the sidecar without rewriting their immutable JSON rows; do not assign plan references to older executions.
-- Each persistent CSV row shall include at minimum: ticker, execution ID or stable sequence, optional Plan ID and Plan Revision ID when that individual execution is linked, execution date, action, position effect (open/increase/reduce/close), position side, quantity, execution price, commission, currency, strategy, and realized P&L (blank or zero according to a documented convention when the execution does not realize P&L). Plan IDs, Plan Revision IDs, and execution IDs have distinct meanings; reduction and close rows may leave plan references blank.
+- The portfolio JSON execution ledger remains the source for position calculation and accounting. The persistent CSV is a durable companion log; each new execution receives a stable `ExecutionID` at record time, distinct from `PlanID` and `PlanRevisionID`, for append/duplicate prevention.
+- Generate each new `ExecutionID` as a ULID when the user confirms an execution. Store it as an additive optional field on the immutable JSON row. Generate a legacy sidecar-only identity as `legacy:{ticker}:{ordinal}:{hash}` where `ordinal` is the one-based index within that ticker's ordered `Trades` array and `hash` is the first eight lowercase hexadecimal digits of SHA-256 over canonical UTF-8 JSON for the row (object keys recursively sorted; array order preserved; no insignificant whitespace). A changed row produces a different hash and is a reconciliation discrepancy; never rewrite a legacy JSON row to assign a migration ID.
+- Later rows for a plan-linked lifecycle copy the opening `PlanID` and `PlanRevisionID` by default. The user may clear both on an increase, reduction, or close. If present, they must identify the opening lifecycle's plan and revision; no other plan may be substituted. Rows for unlinked openings keep both fields absent. Do not backfill older rows.
+- Each persistent CSV row shall include these header fields: `ExecutionID`, `LedgerSeq`, `Ticker`, `ExecutionDate`, `Action`, `PositionEffect`, `Side`, `Quantity`, `Price`, `Commission`, `Currency`, `Strategy`, `PlanID`, `PlanRevisionID`, `ReleasedBasis`, `RealizedPnL`, `OpenQtyAfter`, `AccountingMethod`, `Source`, and `RecordedAt`. Use `Source` values `new` or `migrated`; use FIFO for `AccountingMethod`. Blank non-applicable monetary fields consistently. Serialize numbers with `.` decimal separator and at most 8 fractional places, ISO dates, UTF-8 with BOM on initial file creation, CRLF line endings, and correct CSV quoting/escaping.
 - Include the fields needed to interpret realized P&L, including the accounting method (FIFO) and any relevant allocated basis/released basis, or clearly document that these are derived by replaying the referenced execution ledger. Do not misrepresent an execution-level P&L as a complete closed-lifecycle result when one execution only partially reduces a position.
-- Preserve the append order of executions. Define stable headers, ISO date format, decimal representation independent of display formatting, UTF-8 encoding, and correct CSV escaping for commas, quotes, and newlines. Never rewrite or delete existing history rows when the open snapshot changes or a position closes.
-- Provide a way to initialize the history from existing portfolio JSON executions before the first new execution is appended. The migration must be idempotent and must detect/reconcile already logged execution IDs. This history migration must not add Plan IDs to old JSON execution rows or imply those executions used a plan.
-- The persistent CSV is not silently overwritten. The system shall report write/permission/space errors before treating an execution and its history log as fully saved. Define recovery behavior if updating/exporting the portfolio JSON succeeds but appending the CSV fails, or vice versa.
+- Preserve append order using `LedgerSeq` and the order of the portfolio `Trades` array. Initialize the history from existing executions before appending new ones; migration is idempotent and detects existing IDs. Do not rewrite or delete prior CSV rows when a position changes or closes.
+- The persistent CSV is never silently overwritten. Report write, permission, locked-file, and space errors explicitly.
 - Do not implement this persistent history as the existing user-triggered download. It is a separate, system-maintained file that retains history across sessions. Browser filesystem APIs require user authorization to select/create a file and may require renewed permission; alternatively a backend service is needed for fully automatic filesystem writes. The user is responsible for opening the CSV in spreadsheet software and managing its location, backup, retention, and sharing. The app must explain setup and expose synchronization/recovery status.
 - Do not overwrite or delete historical executions when a position is closed or reduced.
 - The transaction-level history shall remain consistent with the append-only execution contract and the existing [trade-history requirements](../Trades-window-with-filter/README.md).
@@ -279,24 +298,61 @@ The REQ1 workbook used the adjustable risk-tolerance percentage for both maximum
 - Historical values shall not be silently recalculated using a current quote. The view shall distinguish recorded execution prices from any current or estimated price.
 - When new long-only executions are recorded by this feature, they shall be written to the portfolio JSON execution ledger and reflected in the persistent CSV history. Short-sale entry/management is not supported in this release; short records already present in imported historical data must not be silently transformed or discarded.
 
-#### REQ3 CSV distinction and storage options
+#### REQ3-02 — Durable queue and per-execution save states
+
+When an execution is confirmed, persist its complete immutable row in an IndexedDB queue keyed by `ExecutionID` before attempting the CSV append. The queue survives page reloads and is removed only after the JSON export and CSV append are both confirmed. Append during the user action that records the execution so browser permission prompts occur within a user gesture. Before appending, check the CSV `ExecutionID` column for duplicates; serialize concurrent writers across same-origin tabs using the Web Locks API.
+
+Track each execution through `recorded` → `csv-written` → `json-exported`. `recorded` means retained in the local queue, not saved to both files. Show **Saved** only after reaching `json-exported`; until then show which output is pending. If no CSV is configured, do not block execution recording: queue the row and show a persistent setup/synchronization banner. If CSV permission is denied or the file is locked (including by spreadsheet software), retain the queue item, report the failure, and allow a safe retry.
+
+The existing portfolio page downloads an exported JSON copy and does not write back to the selected source file. Therefore **json-exported** means the browser completed the download, not that the user replaced or persisted their working source file. State that limitation explicitly; do not call download confirmation a disk save to the selected source.
+
+#### REQ3-03 — File reconciliation and recovery
+
+On portfolio JSON load and when a history CSV is selected, compare execution IDs:
+
+- **JSON has ID, CSV does not:** warn that a CSV append is being performed for a ledger execution and append it idempotently.
+- **CSV has ID, JSON does not, and IndexedDB has the queued full row:** identify it as a CSV-written/JSON-export-pending execution and offer to include it in the next portfolio export. Do not create a second row.
+- **CSV has ID, JSON does not, and no matching queue row exists:** show the ticker and execution ID as an unresolved ledger/history mismatch. Never label it as a plan or assume it was merely planned; this CSV contains actual executions only. Do not delete, import, or alter records automatically.
+- If a legacy row's canonical hash changes or ordinal mapping shifts, report a discrepancy for user review rather than silently treating it as an unchanged execution.
+
+Retain pending queue items through failures and reloads. Reconciliation and retry must use the stable `ExecutionID`, never duplicate a row, never mutate earlier JSON executions, and never infer Plan IDs for legacy rows.
+
+#### REQ3-04 — Cross-tab execution context
+
+When opened from Positions, the planner runs in a new tab. Positions warns before unload while its portfolio has unexported changes. A same-origin `BroadcastChannel` handshake provides the planner the current validated in-memory portfolio snapshot and notifies both tabs of subsequent portfolio or lifecycle changes. Treat channel messages as transient coordination only: persist executions and plan state through their owning storage transactions and recompute plan lifecycle from the currently selected/loaded JSON ledger.
+
+#### REQ3 CSV distinction
 
 | CSV | Trigger and persistence | Purpose |
 | --- | --- | --- |
 | Existing Positions trade-history CSV | User opens history, applies filters, and requests a browser download to a chosen location. | Filter, inspect, and audit loaded portfolio history. It may gain useful display/export fields while retaining this purpose and matching the visible filtered rows. |
-| New execution-history CSV | System-maintained persistent file; append after each recorded execution once storage is configured. | Durable record of actual executions, including reductions and closes, keyed by stable execution identity and optionally carrying Plan ID and Plan Revision ID when applicable. The user opens/manages this file in spreadsheet software. Not a filtered replacement for the existing export. |
+| New execution-history CSV | User selects or creates a persistent CSV and grants write permission; the app appends actual executions and retries queued writes. | Durable, spreadsheet-readable record of openings, increases, reductions, and closes. It is not a filtered replacement for the existing export. |
 
-Possible persistence implementations:
+The execution-history CSV uses the schema, initialization, append, queue, synchronization-state, and reconciliation requirements in REQ3-01 through REQ3-03. The user is responsible for the file's location, backup, retention, and sharing. The app must not replace or reuse the filtered trade-history export, claim atomicity between the CSV and downloaded portfolio JSON, or report an execution as fully saved until it reaches the specified `json-exported` state.
 
-| Option | How it works | Advantages | Risks/limitations |
-| --- | --- | --- | --- |
-| **A. User-authorized CSV sidecar (recommended for this static local app)** | During setup, the user selects/creates the history CSV and grants write permission. Thereafter the app appends each execution automatically while it retains permission. | Produces the required system-maintained spreadsheet-readable file without a server. | Browser support and retained permissions vary; JSON export and CSV append cannot be committed atomically. Requires visible synchronization state, stable IDs, safe retry/reconciliation, and a recovery queue. |
-| **B. IndexedDB for plans and recovery state, plus CSV sidecar** | Keep plans, revisions, and pending CSV synchronization state in a browser-local database; maintain the separate CSV through option A. | Keeps plans separate from portfolio JSON and supports revision history and retry state across page reloads. | Data is browser/profile-specific and needs a backup/recovery policy; it does not remove the CSV file permission requirement or guarantee cross-device access. |
-| **C. Backend history service** | Server stores executions and produces/exports the CSV; portfolio state and history can be committed transactionally. | Strongest consistency, backup, multi-device access, and audit controls. | Requires evolving the static single-user app into a service, including authentication, hosting, APIs, and operations; outside a minimal local-page release. |
+### REQ4 — Persist and move planner data
 
-**Proposed initial contract:** Use IndexedDB for plans, plan revisions, closed state, and a pending-sync queue. Use a user-authorized CSV sidecar as the persistent execution-history file, with system appends after a valid execution is recorded. Give each new execution a stable `ExecutionID` distinct from any `PlanID` or `PlanRevisionID`; assign repeatable migration identities to old rows in the sidecar without mutating portfolio JSON or adding plan references. A plan-originated opening execution stores its Plan ID and opening Plan Revision ID in portfolio JSON and the CSV. Later execution rows may retain those references when relevant, but reductions and closes may be unlinked; retry handling still uses ExecutionID. If a CSV append fails, retain the pending execution identity and report that the history file is not synchronized; retry must not duplicate the row. The existing portfolio page currently exports a downloaded JSON copy rather than writing back to the selected source file, so the exact point at which JSON and CSV count as jointly saved remains a design decision. Do not claim atomic persistence or full synchronization until both stores are confirmed. The user manages the CSV file in spreadsheet software and is responsible for its location, backup, retention, and sharing.
+#### REQ4-01 — IndexedDB lifecycle and portable backup
 
-The new CSV implementation must not replace, alter, or reuse the existing Positions trade-history export. Browser support, initial file selection/permission, and recovery/synchronization behavior between the execution-history CSV and downloaded portfolio JSON still require design. A normal per-execution download is not the proposed system-maintained workflow.
+- Portfolio JSON remains authoritative for real executions and position accounting. IndexedDB stores saved plan records and immutable revisions, plan lifecycle cache, and the REQ3 pending execution queue/synchronization state. Browser-bound settings or file handles needed for the local workflow may also be retained there, but are excluded from portable backups. IndexedDB is browser-managed storage for the same app origin and browser profile, not a user-editable database file, a second execution ledger, a backup guarantee, or automatic cross-device synchronization.
+- Load saved plans from IndexedDB when the planner opens. Unsaved drafts and edits remain in page memory only until the user explicitly selects **Save Plan** or **Save Revision**. A save succeeds only after its IndexedDB read/write transaction completes. Write the plan and its revision in one transaction. On transaction, quota, or browser-storage failure, report that data was not saved and retain the in-memory draft where possible.
+- After the first successful explicit plan save, request persistent browser storage with `navigator.storage.persist()` where supported. This request is non-blocking and must not delay or invalidate the plan save. Report whether persistent storage was granted, denied, or unsupported. Do not claim that persistent-storage mode is a backup or guarantees data recovery. The UI shall show when the last backup was made and the number of plan revisions created since that backup.
+- Provide user-triggered JSON backup export of all successfully saved plans, complete revision histories, stable IDs, order, closure/link lifecycle data needed for recovery, and schema metadata. Exclude unsaved drafts, browser-specific file handles, permissions, and origin-bound settings. Use this envelope:
+
+  ```json
+  {
+    "format": "trade-planner-backup",
+    "schemaVersion": 1,
+    "exportedAt": "ISO-8601 timestamp",
+    "plans": [],
+    "checksum": "sha256:<hex digest>"
+  }
+  ```
+
+- Calculate the SHA-256 checksum over the `plans` array serialized as canonical UTF-8 JSON: recursively sort object keys, preserve array order, and omit insignificant whitespace. This detects accidental corruption; it is not an authenticity or encryption mechanism. If reading, serialization, checksum generation, or download fails, report the failure and do not update the last-successful-backup status.
+- Provide a file-picker restore flow usable in another browser profile or on another computer. Validate the entire envelope, checksum, schema version, and plan/revision contents before changing local data. Accept supported versions and apply explicit migrations for older supported versions; reject unsupported newer versions. Preview plan count and tickers, explain that restore replaces saved planner records rather than merging, and identify loaded portfolio or queued-execution references whose plan IDs would be absent after restore. Offer a backup download of the current local data before replacement.
+- Apply an accepted restore as a single atomic IndexedDB replacement of saved plans, revisions, and their lifecycle cache only. Preserve Plan IDs, Revision IDs, ordering, and closed state; do not replace or delete the pending execution queue, sync state, or browser-bound file settings. Require explicit confirmation. Invalid input or transaction failure must leave existing local records intact and must not show success. Restore does not modify portfolio JSON or the execution-history CSV; file handles and permissions must be selected or granted again in the destination browser. Unsaved drafts are not exported or restored.
+- Successful backup means the browser completed the backup file download; successful restore means the atomic IndexedDB transaction completed. Do not silently overwrite the selected portfolio source file. Keep the existing user-requested filtered Positions CSV separate and unchanged.
 
 ## Workbook-backed behavior
 
@@ -335,7 +391,7 @@ Important limitations of this workbook behavior:
 - It models a long position only. Its stop and target formulas do not define short-side behavior.
 - Quantity is fractional; the workbook does not round it to whole shares.
 - The `+1` in both archived scenario formulas acts like an estimated exit fee. The new planner's optional editable exit fee defaults to 1.00 in the plan currency (`$1` for USD), accepts zero, and is included in both scenario P&L and risk-based quantity sizing. No entry fee is present in the archived REQ1 workbook; any optional entry fee defaults to zero.
-- `ATRP` (`B4 = 0.03`) and `ATR` (`C4 = 0.72`) are entered but are not referenced by any calculation in this sheet. Although the adjacent labels include “Date purchase,” the sample cells contain numeric values, not dates. Their units, intended dates, and whether they should affect calculations remain unspecified.
+- `ATRP` (`B4 = 0.03`) and `ATR` (`C4 = 0.72`) are entered but are not referenced by any calculation in this archived sheet. Their new-release units and behavior are defined in REQ1-07; do not infer them from the workbook.
 
 ### REQ2 — Position watchlist and exit scenarios
 
@@ -369,7 +425,7 @@ The legacy `YOC` cells depend on a separate external workbook, `Dividend_CalandT
 
 The workbook also contains a blank-asset row with `Q=0`; formulas still show negative exit-fee P&L values for that row. This is a spreadsheet artifact, not a valid position. The new feature must validate required fields and avoid presenting calculations for an empty or zero-quantity position.
 
-For the new snapshot, `Q` means currently open quantity. `EP`/`AVG` must represent the current position's fee-inclusive average entry basis for the snapshot calculation, rather than an individual historical fill. Whether snapshot quantity and basis are entered manually or read from the loaded portfolio JSON remains a release decision; the JSON load is required at minimum for YOC.
+For the new snapshot, `Q` means currently open quantity and `EP`/`AVG` is the current fee-inclusive average basis read-only from the loaded portfolio JSON execution ledger. Entry fee for snapshot calculations is zero because acquisition commissions are already included in that basis. These are settled REQ2 rules, not workbook behavior.
 
 The new output meanings are:
 
@@ -382,7 +438,7 @@ The new output meanings are:
 | Target ROI | `TargetPnl / Investment * 100`, shown as a percentage in a separate column. |
 | YOC | Derived from the selected portfolio JSON data using the DCA formula above; it is not the old REQ2 external lookup. |
 
-The old `L` and `P` percentage columns use inconsistent fee bases. The release should retire them in favor of the clearly named Stop P&L, Target P&L, Reward/Risk, and Target ROI outputs unless there is a specific user need to retain the legacy calculations. If retained, document their distinct fee treatment. Do not silently relabel them as fee-inclusive returns.
+The old `L` and `P` percentage columns use inconsistent fee bases. Retire them in the release in favor of the clearly named Stop P&L, Target P&L, Reward/Risk, and Target ROI outputs. Do not silently relabel them as fee-inclusive returns.
 
 ## Calculation and data-integrity rules
 
@@ -390,7 +446,7 @@ The old `L` and `P` percentage columns use inconsistent fee bases. The release s
 2. **Scenario vs execution:** Planner inputs and results are estimates. They must not be written as executed trades until the user records an actual execution.
 3. **Long and short orientation:** The new planner and snapshot workflow support long positions only in this release. Short-sale planning and tracking are deferred to a future release; existing positions-page short accounting is unchanged.
 4. **Fees:** The optional exit fee defaults to `$1` for USD, accepts zero, and is included in scenario P&L and risk-based quantity sizing. Entry fee is zero unless supplied. REQ2 Reward/Risk and Target ROI use fee-inclusive stop and target P&L.
-5. **Precision:** Keep full calculation precision internally; apply display rounding only for presentation. Quantity rounding must follow an explicitly chosen rule.
+5. **Precision:** Keep full calculation precision internally and apply display rounding only for presentation. REQ1-05 defines the per-plan quantity mode: fractional by default or whole shares rounded down.
 6. **Position ledger:** Keep the existing append-only execution order, FIFO accounting, and no-reversal rule for new position executions. Do not alter the portfolio accounting contract as an incidental planner change.
 7. **Currency:** Keep amounts and fees in a declared currency. The existing positions tools do not perform currency conversion; do not aggregate unlike currencies as if converted.
 8. **Dates:** Distinguish plan date, execution date, and close date. An estimated plan date is not an execution date.
@@ -401,80 +457,23 @@ The old `L` and `P` percentage columns use inconsistent fee bases. The release s
 
 ### Planning
 
-- A user can enter the required plan inputs and identify the asset, direction, currency, and assumptions.
-- The page labels inputs, derived values, and estimates distinctly and explains the selected calculation basis.
-- Valid example cases reproduce this specification's worked outputs within an agreed rounding tolerance; matching archived workbook outputs is not required.
-- With `$2,500` funding, `1%` risk tolerance, `$571` entry, `2%` PT1, and `$1` exit fee, `SL1` is `$565.29`, risk sizing allows `24 / 5.71 = 4.20315236` shares, and planned notional is `$2,400`. PT1 is `$582.42`. At the `$582` target, estimated net P&L is about `$45.23`; at the `$566` stop, estimated net P&L is about `-$22.02`; at `SL1`, net loss including the exit fee is `$25.00`. With a `$0` exit fee and the same `SL1`, quantity is `25 / 5.71 = 4.37828371` shares.
-- For the DCA YOC example, 300 shares at a `$9.5367` fee-inclusive average basis and a `$0.12` monthly dividend produce about `15.10%` YOC; use full precision internally and round only for display.
-- Invalid or incomplete inputs produce a clear validation message and no misleading calculated result.
-- A new plan and edits to a saved plan remain transient until the user explicitly selects **Save Plan** or **Save Revision**. Nothing about an unsaved plan—including notes or selected Fibonacci levels—is written to browser storage. Warn when leaving with unsaved changes; document that crashes/forced termination can still lose a draft.
-- A saved plan revision includes editable free-text notes/comments. The notes popup edits the current in-memory revision; saving the plan/revision is required to persist the note.
-- The candidate lists distinguish `PT1...PTn` (percentage-derived PT1, resistance, Fibonacci extension, trend-line) from `SL1...SLn` (risk-derived SL1, support, Fibonacci retracement, ATR/ATRP, and optional direct stop prices). Each selectable level retains its source and applicable chart interval/as-of time.
-- The Fibonacci popup computes both extension (`A/B/C`) and retracement (`A/B`) candidates from the specified ratio list, labels all levels, and lets the user add chosen levels to the appropriate PT or SL list. Calculating/selecting in the helper does not itself persist a plan.
-- RSI, EMA 9/100/200, and VWAP are entered as observed contextual readings with chart interval and as-of time. They are not automatically calculated or fetched; VWAP is not itself a PT/SL candidate.
-- Funding, risk-tolerance percentage, PT1 percentage, and optional exit fee are editable. On initial new-plan page load, their fields show `$2,500`, `1%`, `2%`, and `1.00` in the selected plan currency respectively; defaults are not placeholder-only hints. Reopening a saved plan restores its saved values.
-- The exit fee defaults to 1.00 in the selected currency (`$1` for USD), accepts zero, and affects both scenario P&L and position sizing under each stop. The optional entry fee is zero when absent.
-- PT1 uses the PT percentage, default `2%`; SL1 is calculated from risk tolerance. Support additional stop candidates `SL2...SLn` from user-entered prices or user-supplied ATR/ATRP values. For each stop, display its own max quantity and estimated outcomes under the same funding, risk-budget, and fee assumptions; a selected stop determines the plan's primary quantity.
-- Each target candidate shows net P&L, ROI, and reward/risk against every applicable stop scenario, with the stop and quantity assumptions identified.
-- Optional `PT2...PTn` and `SL2...SLn` can store selected price levels and their chart interval/source. Resistance, Fibonacci extension, and trend-line inputs are PT candidates; support and Fibonacci retracement inputs are SL candidates; ATR and ATRP are volatility readings used to derive SL candidates. RSI, EMA 9/100/200, and VWAP are manually entered contextual readings, not calculated from historical market data.
-- Indicators or price levels near a target or stop may be presented as qualitative confluence for user review. Do not claim that confluence increases the odds of a winning trade, calculate a win probability, or imply a guaranteed outcome without a separately specified and validated statistical model. Define the proximity threshold and data provenance before automatically identifying confluence.
+- **REQ1-01/05:** Verify initial defaults, editable fees, input ranges, both quantity modes, and funding/risk limits. With `$2,500`, `1%` risk, `$571` entry, `2%` PT, and `$1` exit fee, SL1 is `$565.29`, quantity is `4.20315236`, PT1 is `$582.42`, target `$582` P&L is about `$45.23`, stop `$566` P&L about `-$22.02`, and SL1 loss is `$25`. With no fees, quantity is `4.37828371`.
+- **REQ1-06/07:** Verify PT/SL candidates, limits and validation, Fibonacci extension/retracement examples, chart interval and observation timestamp with offset, and percentage distance for price levels. RSI has no price distance; automatic confluence/probability detection is deferred.
+- **REQ1-02/03:** Verify memory-only drafts and warnings, notes, immutable revisions, delete/archive restrictions, duplicate-as-new, concurrent-edit rejection, ledger-derived lifecycle states, and guarded link release.
+- **REQ1-04:** Verify new-tab launch, unsaved Positions warning, portfolio handshake, and cross-tab refresh without treating channel messages as persistence.
+- **REQ4-01:** Verify atomic plan/revision saves and restores, storage-protection status, backup envelope/checksum, restore preview and replacement confirmation, invalid-file rejection, and unchanged local data on restore failure.
+- All examples use full calculation precision internally and display rounding only at the UI boundary. Invalid inputs show clear errors rather than plausible zeroes.
 
-- The keyboard-accessible Fibonacci popup calculates both extension and retracement using all eight requested levels in order: 23.6%, 38.2%, 50%, 61.8%, 65%, 76.4%, 100%, and 120%. For extension A=`100`, B=`120`, C=`110`, levels are `114.72`, `117.64`, `120`, `122.36`, `123`, `125.28`, `130`, and `134`. For retracement A=`100`, B=`120`, levels are `115.28`, `112.36`, `110`, `107.64`, `107`, `104.72`, `100`, and `96`.
-- Optional chart, volatility, and indicator inputs retain their source value, units or period, chart interval, and as-of date/time; changing those inputs updates only the relevant scenario estimates.
-- RSI accepts only finite values from `0` through `100`. EMA accepts finite, nonnegative manually observed price/level values for periods `9`, `100`, and `200`. Each reading retains and displays its chart interval and as-of date/time and is identified as manually entered, not live or page-calculated.
-- For the NVDA example, `$232.48` entry with `PT=2%` calculates PT1 as `$237.1296`, displayed as `$237.13`; the user-entered resistance candidate is `$243.38` at chart interval `1 Day`.
-- ATR and ATRP scenarios show the assumed user-supplied value, units, chart interval/date, stop price, max quantity, and net loss; they create alternative `SL` candidates and do not silently replace the selected primary stop.
-- Zero/invalid risk and reward do not produce a numeric reward/risk result; the UI shows an explicit unavailable state.
-- The new planner and snapshot accept long scenarios only. No short-sale planning or short-position workflow is added by these features in this release; future short-sale support is deferred, and existing portfolio-page behavior is unchanged.
-- The positions page preserves its existing supported long/short execution accounting. Strategy descriptions that mention shorts do not enable short-sale planning or change that release boundary.
-- For every selected real portfolio ticker that does not start with `.` and has no open position, Positions offers matching plans in a selector. Selecting a plan prefills opening fields; the user confirms actual execution quantity, price, date, fees, and strategy. When recorded, the opening execution carries the selected Plan ID and exact Plan Revision ID. A reduction or close remains available without a plan selection; its execution may omit both plan references, including when no listed plan is appropriate. The opening execution remains the lifecycle link used to close the plan when its position reaches zero. Older executions are not retroactively linked, and a plan cannot be attached to an already-open unlinked position.
-- The Fibonacci popup calculates extensions from A/B/C and retracements from A/B using all eight specified ratios. It presents extension levels as selectable PT candidates and retracement levels as selectable SL candidates, but calculation alone does not save them.
-- A user can enter RSI, EMA 9/100/200, and VWAP observations with chart interval and as-of time. They remain contextual indicators; VWAP is not automatically offered as a PT/SL candidate.
-- Unsaved new-plan inputs, changes to an existing plan, popup selections, and notes remain in page memory only. The explicit save action creates/persists a plan or revision. Navigation/reload/tab close warns of pending edits; a browser crash may lose them.
-- The plan's popup notes/comments field is editable and included in the saved plan revision. Unsaved note changes are not persisted.
-- The strategy helper describes `SniperNine` as an automated proprietary strategy under performance testing. The page does not execute it or claim established performance.
-- The planner link and scenario section follow the current pages' typography, colors, centered content, card/table styling, spacing, focus states, and responsive behavior. At narrow widths, controls stack and wide history/scenario tables remain usable without causing page-wide horizontal overflow.
-- Editing a plan does not change portfolio executions or derived open-position totals.
-- Saving a plan revision preserves earlier revisions for review. Keep the plan editable while its linked position is open. When its position is fully closed, set the plan-domain closed flag and prevent further edits; plans with no recorded execution remain editable.
-- On the Positions page, a flat, non-dot-prefixed portfolio ticker offers matching plans for selector/prefill. Prefilled values are not executions; users confirm actual trade details before saving. The opening execution records the selected Plan ID and Plan Revision ID. Later events may retain both when relevant, but reductions and closes are allowed with neither reference.
-- Plan IDs are stable identifiers for planning records tied to a ticker and criteria. Multiple plans may exist for one ticker; a plan-originated position records which plan and exact saved revision were used. Do not add plan references to older executions or infer historical associations. Keep Plan ID and Plan Revision ID separate from Execution ID, which identifies individual ledger events and prevents duplicate CSV appends.
-- The strategy-allocation summary groups remaining open basis by the position's strategy, selected when opened and held constant through additions and reductions until the position is fully closed. A subsequent position may use a different strategy. Derive long dividend projections from portfolio JSON; do not count closed capital as currently invested.
-- `SniperNine` is described as an automated proprietary strategy under performance testing; neither the planner nor Positions page runs it or represents its performance as proven.
+- Apply the accessibility, responsive-design, and existing visual-language requirements in the page-integration section; these presentation checks do not duplicate the financial requirements listed above.
 
 ### Position tracking and history
 
-- Recording an execution changes the position only after explicit confirmation and follows the current JSON execution contract.
-- Partial reductions, full closes, FIFO basis, commissions, and realized results continue to satisfy the existing position specification’s worked examples.
-- **Unlinked reduction/close acceptance case:** A user with an open 10-share position can sell 2 shares, then close the remaining 8, without choosing a plan even if matching plans exist but none is suitable. Both new execution rows are recorded normally with blank `PlanID` and `PlanRevisionID`; CSV history still appends them using their `ExecutionID`. If the opening execution linked the position to a plan, that lifecycle-level link remains on the opening record and the plan is marked closed when the net position reaches zero. If the opening execution had no plan, no plan is linked or locked.
-- When retaining REQ2's ACRE formulas, `Q=110`, `EP=$4.43`, entry fee `$0`, stop `$3`, target `$5.30`, and exit fee `$1.01` produce `$487.30` investment, `-$158.31` stop P&L, and `$94.69` target P&L. Show Reward/Risk as approximately `0.598:1` and Target ROI separately as approximately `19.43%`.
-- A blank asset or zero quantity produces a validation/empty state, not the workbook's fee-only P&L result.
-- YOC uses dividend, periodicity, and fee-inclusive basis from the selected portfolio JSON asset, matches the DCA formula, and is `N/A` for missing/unmatched asset data, `Periodicity: "N/A"`, unavailable basis, flat positions, or shorts. An absent periodicity uses the DCA page's legacy `M` fallback; a valid zero dividend rate displays 0%.
-- For an open long position, the displayed per-cycle dividend amount is `open Qty * Div`, independent of periodicity. If shown, annualized dividend is a separate projection using the `Periodicity` payout count; `N/A` periodicity yields `N/A` projections.
-- The feature can load a user-selected portfolio JSON file with the same validation and local import/export behavior as the existing browser pages; it does not silently overwrite the selected file.
-- The existing user-requested Positions trade-history CSV remains a filtered audit/export workflow and is not repurposed as the persistent history log. Any added fields preserve the filtered view/export purpose and the visible-row/export consistency.
-- Open-position snapshot rows are not treated as the historical record; open, reduction, and close events remain available in the separately defined append-only history.
-- Each successfully recorded execution is appended to the separate system-maintained CSV history, including opening/increase, partial reduction, and close activity, even after the position becomes flat.
-- CSV history rows have stable execution IDs distinct from optional Plan IDs and Plan Revision IDs, retain ledger order, include realized P&L and required context, and correctly escape CSV fields. Plan-originated opening executions include both plan references; subsequent reduction or close rows may omit them, and older rows do not receive plan references.
-- Existing executions can be reconciled into a newly selected history CSV without losing ledger order or duplicating records. Any sidecar migration identity is for CSV duplicate prevention only; do not rewrite old immutable portfolio rows or associate them with plans.
-- A CSV write failure is reported distinctly from a portfolio JSON save. Retrying a pending CSV append does not duplicate a row, and the UI does not claim both stores are saved until both writes succeed.
-- Closing or reducing a position does not delete or overwrite its previously recorded CSV rows.
-- The persistent CSV history remains available across page reloads/sessions and is not confused with the user-requested Positions history export. It is not a per-execution download in this release. The user opens it in spreadsheet software and manages its location, backup, retention, and sharing.
-- A close leaves the immutable execution history available for review; an open position is not duplicated as a second record just to make it appear in another screen.
-- Estimated values cannot be mistaken for realized P&L or broker-confirmed fills.
-- History exports match the displayed records and identify the values’ currency and date meaning.
-
-### Persistence and migration
-
-- Archived Excel workbooks are not imported or used at runtime. Portfolio JSON is authoritative for real execution and open-position calculations; IndexedDB is the proposed browser-local store for plan records only.
-- Explicitly saved plan records and revisions are separate from portfolio JSON execution rows; new plan-originated openings contain `PlanID` and `PlanRevisionID` references as described above. Unsaved drafts are not written to IndexedDB or other storage. The raw plan database is not exposed as a user-editable file; plans and comparisons are operated through the plan page.
-- **IndexedDB save/load lifecycle:** When the planner opens, load saved plans and revisions from IndexedDB into page memory as needed. A new plan or an edit remains only in the current page's memory until the user explicitly selects **Save Plan** or **Save Revision**. After a successful save, the record remains in the browser-managed database across page reloads, tab closure, and browser restarts for the same app origin and browser profile; it is not limited to a single browsing session. The planner reloads saved data on a later visit. It is not automatically available in another browser profile, on another device, or to another user.
-- Treat a save as successful only after its IndexedDB read/write transaction completes successfully. Save a plan and its revision together in one transaction so the plan cannot appear saved without its corresponding revision. If the transaction aborts or fails (including quota or browser-storage errors), keep in-memory edits available where possible, clearly report that they were not saved, and do not display a success state. A request-level success before transaction completion is not sufficient confirmation.
-- IndexedDB is browser-managed storage, not a backup guarantee: the browser controls its underlying representation and retention. Users or browser tools may clear site data; private-browsing data may be removed when the private session ends; browsers may deny storage or remove data under storage pressure. This requirement does not promise encryption, automatic cross-device sync, or recovery after storage removal. The portable backup described below is user-initiated; whether the app should request browser persistent-storage protection remains a separate design decision.
-- **Portable backup export:** Provide a user-triggered export that serializes all saved plans, their complete revision histories, stable IDs, plan closure/lifecycle state, and required schema/version metadata to a documented JSON format. Exclude unsaved drafts and browser-specific state such as file handles, granted permissions, and origin-bound settings. Generate the export only from successfully saved data; report read, serialization, and download failures instead of presenting an incomplete backup as successful. The downloaded file is intended to be saved or transferred by the user and can contain private trading rationale and notes.
-- **Portable backup restore:** Provide a file-picker flow to load that JSON backup in the planner, including in a different browser or on another computer. Before applying it, validate the format/version and the complete contents, then show a preview (such as plan count and ticker list) and warn that restore replaces existing local portable planner records. Require explicit confirmation. Do not partially apply an invalid backup: write the validated replacement atomically, and report a failed restore without claiming success. Preserve plan IDs, revision IDs, their ordering, and closed state so references remain stable.
-- Restore replaces portable planner data; it does not merge. It does not import, overwrite, or modify `portfolio.json` or the separate execution-history CSV. Browser-bound file handles and permissions cannot be restored from the backup; after moving to another browser/profile/device, the user must select or authorize those files again. Unsaved drafts are neither exported nor restored. Keep the existing Positions filtered CSV export unchanged.
-- Import/export behavior preserves strategy, ticker, dates, quantities, prices, fees, currency, and history order, or reports every unsupported field/row before saving.
-- The source file is not silently overwritten. A user can verify and export a valid portfolio file and reload it without losing supported data.
+- Recording an execution requires explicit confirmation and follows the existing append-only JSON contract; FIFO accounting examples in [the portfolio-update specification](../portfolio-update/README.md) remain the regression baseline.
+- REQ2 snapshot/YOC and REQ3 execution/CSV behavior are verified by their requirement-specific criteria above.
+- **Worked snapshot case:** For ACRE (`Q=110`, `EP=$4.43`, entry fee `$0`, stop `$3`, target `$5.30`, exit fee `$1.01`), verify `$487.30` investment, `-$158.31` stop P&L, `$94.69` target P&L, Reward/Risk about `0.598:1`, and Target ROI about `19.43%`.
+- Verify blank/flat positions, missing dividend data, invalid periodicity, short positions, and currency mismatch states as specified in REQ2; keep estimates distinct from realized P&L and broker-confirmed executions.
+- **REQ2-03:** Verify currency-first, strategy-second grouping, separate payout-period projections, and that open counts, remaining basis, and dividend projections derive from the loaded portfolio ledger without currency conversion or guaranteed-income claims.
+- The existing user-requested filtered Positions CSV remains unchanged; the new persistent execution CSV is governed only by REQ3-01 through REQ3-04.
 
 ## Recommended enhancements (optional)
 
@@ -498,20 +497,19 @@ These are explanations of existing strategy classifications, not new enum values
 
 These strategy descriptions do not change allowed position directions or serialized strategy enum values.
 
-## Decisions required before implementation
+## Implementation constraints
 
-1. **Execution persistence and synchronization:** Confirm supported browsers and the initial history-CSV file selection/permission flow for the system-maintained sidecar, plus recovery and synchronization behavior. Browser pages currently download portfolio JSON rather than write back to the selected file; define what the UI may report as committed when a CSV append and JSON export cannot be atomic.
-2. **Execution identities and migration:** Define stable `ExecutionID` values for new executions, distinct from Plan IDs and Plan Revision IDs, and repeatable migration IDs for old immutable rows. Define recovery and duplicate detection when a CSV append or portfolio export fails. Do not retrofit plan references to old executions.
-3. **Portable planner backup format:** Define the JSON schema versioning and forward/backward compatibility policy. The release includes an application-level export and replace-style restore with validation, preview, and explicit confirmation.
-4. **Browser storage protection:** Decide whether the app should request the browser's persistent-storage mode, how to handle browsers that do not support or grant it, and what availability/status to show. This does not replace user backup/export.
-5. **Targets and chart concepts:** RSI and EMA 9/100/200 are manually entered readings; no automatic market-data feed or chart analysis is assumed. If confluence is identified automatically, define its proximity threshold and validate the method before any probability claim.
+The product decisions needed to begin design and implementation are recorded in REQ1–REQ4 above. The remaining work is technical verification, not an unresolved product requirement:
+
+- Select and document a supported-browser matrix for IndexedDB, `navigator.storage.persist()`, `BroadcastChannel`, Web Locks, and the user-authorized file APIs needed for persistent CSV writes. Where a required capability is unavailable or permission is denied, preserve queued data, report the limitation, and do not claim the affected persistence state succeeded.
+- Exercise the specified JSON-download/CSV-append recovery path because those writes cannot be atomic in the static browser app. Keep queue state and user-visible save status aligned with REQ3-02/03.
+- Automatic market data, chart detection, and confluence/probability claims are deferred. RSI, EMA, VWAP, and price candidates remain manually observed as specified in REQ1-07.
 
 ## Suggested delivery sequence
 
-1. Resolve execution-history CSV browser permissions, execution IDs/migration, and the synchronization/recovery contract with downloaded portfolio JSON.
-2. Implement plan storage, ticker-matched selection/prefill, Plan ID linkage for newly plan-originated positions, and a closed flag that locks a plan when its linked position is fully closed.
-3. Add the system-maintained execution-history CSV without replacing the existing filtered trade-history export or changing the immutable execution ledger.
-4. Validate fee-aware sizing and every SL/PT scenario, plan revisions and closure locking, JSON load/export, CSV migration and persistence, duplicate prevention, interrupted-write recovery, keyboard use, narrow-screen layouts, and visual consistency.
+1. Verify the browser capability and permission matrix, then implement planner storage, revision/lifecycle handling, backup/restore, and ticker-matched plan selection/prefill.
+2. Implement plan linkage and actual execution recording without changing the immutable portfolio accounting contract; apply CSV queue, save-state, and reconciliation behavior from REQ3.
+3. Validate fee-aware sizing and every SL/PT scenario, plan revisions and closure locking, JSON load/export, CSV migration and persistence, duplicate prevention, interrupted-write recovery, keyboard use, narrow-screen layouts, and visual consistency.
 
 ## Reconciled source files
 

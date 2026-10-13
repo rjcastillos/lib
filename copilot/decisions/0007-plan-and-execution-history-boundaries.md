@@ -1,7 +1,7 @@
 # Plan and Execution History Boundaries
 
 - Date: 2026-10-08
-- Status: Accepted product requirements; browser persistence details remain for design
+- Status: Accepted; remaining persistence and lifecycle details superseded by Decision 0008
 - Type: Product requirements and persistence clarification
 - Scope: Trade planner, Positions page, portfolio JSON executions, execution-history CSV, and strategy allocation
 - Related request: User clarification in this conversation; no GitHub issue number supplied
@@ -57,9 +57,6 @@ Separating plans from the immutable execution ledger preserves both the original
 - Confirmed that the existing position accounting specification already treats execution rows as append-only and immutable.
 - The existing CSV export remains a separate workflow; the supplied workbooks remain unchanged. The user-managed persistent CSV remains an automatically appended sidecar.
 
-## Decisions Still Required
+## Supersession
 
-- Supported browser set, file permission renewal, and initial selection/creation flow for the user-managed CSV.
-- Recovery and commit/status behavior when CSV append and portfolio JSON download/export do not both succeed.
-- Execution ID generation for new immutable rows and repeatable sidecar-only IDs for old rows, without changing old JSON or assigning plan references.
-- The portable backup JSON schema versioning and compatibility policy, and whether the app should request persistent-storage protection from browsers that support it.
+The open questions listed in this record were resolved in [Decision 0008](0008-trade-planner-feedback-resolution.md). Its accepted requirements supersede this record on execution identity and CSV reconciliation, plan lifecycle and revisions, IndexedDB protection, and portable planner backup/restore. The boundary decisions above remain in effect where Decision 0008 does not replace them.
