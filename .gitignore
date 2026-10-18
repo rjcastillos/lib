@@ -3,7 +3,7 @@ GO/distance/distance
 # OS
 .DS_Store
 Thumbs.db
-
+data/*
 # IDE
 .vscode/
 .idea/
