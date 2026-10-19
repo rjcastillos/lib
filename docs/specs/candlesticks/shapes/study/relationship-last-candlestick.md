@@ -1,13 +1,17 @@
 To capture all possible combinations of candlestick shapes in relation to the previous candle, we must look at the mathematical permutations of the Highs and Lows of two consecutive bars.
 There are 16 total mathematical permutations based on how a current candle's High and Low compare to the previous candle's High and Low (Higher, Lower, or Equal).
 
+Permutations of the Highs and Lows of two consecutive bars.
+
+There are 16 total mathematical permutations based on how a current candle's High and Low compare to the previous candle's High and Low (Higher, Lower, or Equal).
 Understanding the Naming Matrix
 
 • HH / LH / EH: Current High is Higher / Lower / Equal to previous High.
 • HL / LL / EL: Current Low is Higher / Lower / Equal to previous Low.
 
-The 16 Permutations & Trading Names
+Out of the 16 Permutations , only 12 are valid sequences the are:
 
+![alt text](image-1.png)
 
 1. Both Extremes Shift Upward
 
@@ -33,7 +37,7 @@ The 16 Permutations & Trading Names
 • EL - HH: Equal Low, Higher High \(\rightarrow \) Bullish Fakeout / Double Bottom Failure
 • EL - EH: Equal Low, Equal High \(\rightarrow \) Identical to EH-EL (Perfect Double Top/Bottom)
 
-5. Volatility / Edge Cases (Rare)
+5. Invalid sequences
 
 • LH - LH: Lower High, Lower High \(\rightarrow \) Invalid single-candle sequence (High cannot equal Low)
 • HL - HL: Higher Low, Higher Low \(\rightarrow \) Invalid single-candle sequence
@@ -53,4 +57,5 @@ Lower	Equal	LH-EL	Descending Base
 Equal	Higher	EH-HL	Ascending Base
 Equal	Lower	EH-LL	Double Top Rejection
 Equal	Equal	EH-EL	Matching Highs/Lows (Tweezer)
+
 
