@@ -592,9 +592,155 @@ Practical Marubozu identification therefore compares body or range size with rec
 
 ![alt text](image-1.png)
 
+Below is the bearish equivalent of the normalized bullish model. The key principle is unchanged: classify the shape using proportions of the candle range, then measure the economic magnitude against price, and finally measure the statistical magnitude against ATR or recent candles.
+
+Published descriptions define a bearish candle as one where the close is below the open, and a bearish Marubozu as a candle opening at or near its high and closing at or near its low. Practical near-Marubozu definitions commonly allow each wick to occupy no more than approximately 5% to 10% of the entire candle range.
+
+1. Normalized bearish candle anatomy
+
+Given:
+
+O = Open
+H = High
+L = Low
+C = Close
 
 
+A bearish candle requires:
 
+C < O
+
+
+Calculate:
+
+Range     = H - L
+Body      = O - C
+UpperWick = H - O
+LowerWick = C - L
+
+
+Validate:
+
+Range > 0
+Body > 0
+UpperWick >= 0
+LowerWick >= 0
+
+
+The components must satisfy:
+
+Range = UpperWick + Body + LowerWick
+
+
+Allow a small tolerance for tick-size and floating-point rounding.
+
+Candle-shape proportions
+BodyRatio      = Body      / Range
+UpperWickRatio = UpperWick / Range
+LowerWickRatio = LowerWick / Range
+
+
+Therefore:
+
+BodyRatio + UpperWickRatio + LowerWickRatio = 1
+
+
+These ratios describe the candle’s geometry independently of whether the asset trades at $3, $100, or $50,000.
+
+2. Location of the open and close
+
+For bearish candles, it is useful to calculate both normalized locations.
+
+Close location
+CloseLocation = (C - L) / Range
+
+
+Interpretation:
+
+0.00 = close exactly at the low
+0.05 = close in the bottom 5% of the range
+0.10 = close in the bottom 10%
+0.50 = close at the midpoint
+1.00 = close at the high
+
+
+For bearish candles:
+
+CloseLocation = LowerWickRatio
+
+
+Therefore, a smaller CloseLocation is more bearish.
+
+Open location
+OpenLocation = (O - L) / Range
+
+
+Interpretation:
+
+1.00 = open exactly at the high
+0.95 = open in the top 5% of the range
+0.50 = open around the midpoint
+
+
+For bearish candles:
+
+OpenLocation = 1 - UpperWickRatio
+
+
+A strong bearish momentum candle normally combines:
+
+High OpenLocation
+Low CloseLocation
+High BodyRatio
+
+3. Normalize against the asset price
+
+Use a consistent reference price:
+
+ReferencePrice = O
+
+
+Then calculate:
+
+BodyPercent      = Body      / ReferencePrice * 100
+RangePercent     = Range     / ReferencePrice * 100
+UpperWickPercent = UpperWick / ReferencePrice * 100
+LowerWickPercent = LowerWick / ReferencePrice * 100
+
+
+For example, a $2 upper wick represents:
+
+$100 asset: 2 / 100 × 100 = 2.00%
+$3 asset:   2 / 3   × 100 = 66.67%
+
+
+Consequently, dollar values should not be used by themselves to identify candle significance.
+
+4. Normalize against recent volatility
+
+Calculate:
+
+BodyATR      = Body      / ATR(n)
+RangeATR     = Range     / ATR(n)
+UpperWickATR = UpperWick / ATR(n)
+LowerWickATR = LowerWick / ATR(n)
+
+
+For example:
+
+RangeATR = 1.20
+
+
+means the complete candle range is 1.2 times the selected ATR.
+
+A candle can have perfect bearish Marubozu proportions while being economically insignificant if:
+
+RangeATR = 0.15
+
+
+Practical Marubozu identification therefore compares body or range size with recent candles or ATR, in addition to measuring wick proportions.
+
+Bearish shapes from most bearish to least bearish
 1. Strong bearish Marubozu
 Strict geometric definition
 O = H
