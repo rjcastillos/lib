@@ -25,15 +25,19 @@ Datetime,,,,,
 2026-10-16 09:30:00-04:00,217.60000610351562,217.639892578125,215.07000732421875,216.55999755859375,28342261
 2026-10-16 10:30:00-04:00,216.50990295410156,218.67599487304688,216.1499938964
 
-## When the time is present this is the start of the period in EDT/EST
+## When the time is present this is the start of the period in "America/New_York"
 
 ---
 
 
-2. The output can be :
-    2.1 a csv file containing the input data + all the key:value pairs as described/calculated
-    2.1.1   Ticker,Date,time,High,Low,Open,Close,Volume, {New Fields as in json file }
-    2.2 a json formated file containing all the input data (preservig their casing) + all the key:value pairs as described/calculated
+2. The outputs are :
+    2.1 a json formated file containing all the input data (preserving their casing) + all the key:value pairs as described/calculated
+
+    2.1 a CSV file containing the input data + all the key:value pairs as described/calculated
+
+    2.1.1  CSV column order:
+    Ticker,Date,time,High,Low,Open,Close,Volume, {New Fields , order and value as in the json formated file }
+
 
 3. Since we are treating real data we will not check the OHLC consistency and try to catch any into a known shape.
     3.1 When C = O  will be a plan doji candle
@@ -338,13 +342,21 @@ formula in this repo at  docs/specs/EMA/README.md
 
 
 # EMA50
+Warm-Up  (periods 1 through 49)
+- resolve to Null/NaN
 
 # EMA100
+Warm-Up  (periods 1 through 99)
+- resolve to Null/NaN
 
 # EMA200
+Warm-Up  (periods 1 through 199)
+- resolve to Null/NaN
 
 # SMA20
 formula in this repo at  docs/specs/SMA/README.md
+Warm-Up  (periods 1 through 19)
+- resolve to Null/NaN
 
 # SLOPE9
 Slope % = ((current period EMA9 − EMA9 9 periods ago ) / EMA9 9 periods ago ) × 100
