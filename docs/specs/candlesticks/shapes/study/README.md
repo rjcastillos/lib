@@ -372,7 +372,203 @@ Slope % = ((current period EMA200 − EMA200 9 periods ago ) / EMA200 9 periods 
 ```
 ---
 
+# Candlesticks Predecessor Relationship
 
+    How a current candle behaves relative to its predecessor (the previous candle) 
+
+## 12 UNIQUE HIGH-LOW RELATIONSHIP PATTERNS OF TWO CONSECUTIVE CANDLES
+### Pattern Code
+- Higher High Dominant
+	HH-HL
+	HH-LL
+	HH-EL
+- Lower High Dominant
+	LH-LL
+	LH-HL
+	LH-EL
+- Equal High Structures
+	EH-HL
+	EH-LL
+	EH-EL
+- Equal Low Structures
+	EL-LH
+	EL-HH
+	EL-EH 
+### Pattern Name
+
+
+    patternName = "Up Trend Bar"
+    patternName = "Outside Bar"
+    patternName = "Bullish Rejection / Expansion"
+    patternName = "Down Trend Bar"
+    patternName = "Down Trend Bar"
+    patternName = "Inside Bar"
+    patternName = "Descending Base Bar"
+    patternName = "Ascending Base Bar"
+    patternName = "Bearish Fakeout"
+    patternName = "Double Bar / Matchbook"
+    patternName = "Descending Triangle Bar"
+    patternName = "Bullish Fakeout"
+    patternName = "Perfect Double Top/Bottom"
+
+### Pattern Category
+
+
+    category = "Both Extremes Shift Upward"
+    category = "Range Expansion"
+    category = "Both Extremes Shift Upward"
+    category = "Both Extremes Shift Downward"
+    category = "Contraction"
+    category = "Both Extremes Shift Downward"
+    category = "Equal High Structures"
+    category = "Equal High Structures"
+    category = "Strict Consolidation"
+    category = "Equal Low Structures"
+    category = "Equal Low Structures"
+    category = "Equal Low Structures"
+
+## Pattern Pseudo code
+
+```text
+FUNCTION classifyRelationship(
+    prevHigh,
+    prevLow,
+    currHigh,
+    currLow
+)
+
+    //--------------------------------------------------
+    // HIGH RELATION
+    //--------------------------------------------------
+
+    IF currHigh > prevHigh THEN
+        highRelation = "HH"
+    ELSE IF currHigh < prevHigh THEN
+        highRelation = "LH"
+    ELSE
+        highRelation = "EH"
+    END IF
+
+    //--------------------------------------------------
+    // LOW RELATION
+    //--------------------------------------------------
+
+    IF currLow > prevLow THEN
+        lowRelation = "HL"
+    ELSE IF currLow < prevLow THEN
+        lowRelation = "LL"
+    ELSE
+        lowRelation = "EL"
+    END IF
+
+    //--------------------------------------------------
+    // PATTERN CODE
+    //--------------------------------------------------
+
+    patternCode =
+        highRelation + "-" + lowRelation
+
+    //--------------------------------------------------
+    // BUSINESS CLASSIFICATION
+    //--------------------------------------------------
+
+    SWITCH patternCode
+
+        CASE "HH-HL":
+            return (
+                code="HH-HL",
+                name="Up Trend Bar",
+                category="Trend Continuation"
+            )
+
+        CASE "HH-LL":
+            return (
+                code="HH-LL",
+                name="Outside Bar",
+                category="Expansion"
+            )
+
+        CASE "HH-EL":
+            return (
+                code="HH-EL",
+                name="Bullish Rejection / Expansion",
+                category="Expansion"
+            )
+
+        CASE "LH-LL":
+            return (
+                code="LH-LL",
+                name="Down Trend Bar",
+                category="Trend Continuation"
+            )
+
+        CASE "LH-HL":
+            return (
+                code="LH-HL",
+                name="Inside Bar",
+                category="Contraction"
+            )
+
+        CASE "LH-EL":
+            return (
+                code="LH-EL",
+                name="Descending Base Bar",
+                category="Consolidation"
+            )
+
+        CASE "EH-HL":
+            return (
+                code="EH-HL",
+                name="Ascending Base Bar",
+                category="Consolidation"
+            )
+
+        CASE "EH-LL":
+            return (
+                code="EH-LL",
+                name="Bearish Fakeout",
+                category="Failure Pattern"
+            )
+
+        CASE "EH-EL":
+            return (
+                code="EH-EL",
+                name="Double Bar / Matchbook",
+                category="Balance"
+            )
+
+        CASE "EL-LH":
+            return (
+                code="EL-LH",
+                name="Descending Triangle Bar",
+                category="Consolidation"
+            )
+
+        CASE "EL-HH":
+            return (
+                code="EL-HH",
+                name="Bullish Fakeout",
+                category="Failure Pattern"
+            )
+
+        CASE "EL-EH":
+            return (
+                code="EL-EH",
+                name="Perfect Double Top/Bottom",
+                category="Balance"
+            )
+
+        DEFAULT:
+            return (
+                code="UNKNOWN",
+                name="UNKNOWN",
+                category="UNKNOWN"
+            )
+
+    END SWITCH
+
+END FUNCTION
+```
 
 # New Fields : Output example in Json that can be  appended as columns as well
 
@@ -398,6 +594,9 @@ Slope % = ((current period EMA200 − EMA200 9 periods ago ) / EMA200 9 periods 
   "slope9": 0.99,
   "slope20": 0.99,
   "slope50": 0.99,
-  "slope200": 0.99
+  "slope200": 0.99,
+  "pattern_code": "xx",
+  "pattern_name": "xx",
+  "pattern_category": "xx"
 }
 
