@@ -1,6 +1,6 @@
 
 # Purpose
-Read an input file make a series of calculations with its rows and store the results in extra fields
+technical specification for a financial OHLCV data-processing pipeline that calculates candlestick features, ATR, relative volume, moving averages, slopes, and predecessor-bar relationships, then exports the results to JSON and CSV.
 
 
 # Considerations
