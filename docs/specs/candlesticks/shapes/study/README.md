@@ -49,7 +49,7 @@ Datetime,,,,,
     - resolve to Null/NaN 
 6.  Zero or Missing Baseline Volume Division by Zero (#DIV/0!) runtime crash.
     - resolve to 0.0 
-7.  
+
 
 
 # Given:
@@ -59,53 +59,124 @@ H = High
 L = Low
 C = Close
 
-# Candle type
-    Bullish candle: C > O
-    Bearish candle: C < O
-    Neutral Doji: C = O
-    Neutral flat: H = L
-## Neutral
-    if C = O  shape = "doji_neutral_candle"
-        else if H = L shape = "flat_neutral_candle"
-    endif
+## 7. Candle-shape rules
+- Shape
+- Direction
 
-## Bullish candle calculations
 
-A bullish candle requires:
+### 7.1 Candles shape and direction classification principles
 
-C > O
+1. Direction is independent of shape. `direction` is `bullish` when `C > O`, `bearish` when `C < O`, and `neutral` when `C = O`.
+2. Neutral candles are handled first. A candle with `H = L` is classified as flat; otherwise, a candle with `C = O` is classified as a doji.
+3. Shapes are based on normalized body and wick proportions. The thresholds are the same for bullish and bearish candles.
+4. Rules must be mutually exclusive. Each rule uses a distinct region of the proportion space, with explicit precedence only for defensive handling.
+5. Unclassified shapes are avoided for valid candles. The final fallback is a general shape such as `standard`, not a direction-specific unclassified shape.
+6. Zero-body candles are excluded from bullish/bearish shape rules. This avoids the problem of a zero body satisfying comparisons such as `wick >= 2 × body`.
 
-### direction = 'bullish'
+The proposed taxonomy uses six paired shapes plus a standard fallback. 
 
-### Range     = H - L
-### Body      = C - O
-### UpperWick = H - C
-### LowerWick = O - L
+### 7.2 Canonical geometry formulas
 
-### Proportions of the candle
-#### BodyRatio      = Body      / Range
-#### UpperWickRatio = UpperWick / Range
-#### LowerWickRatio = LowerWick / Range
+Replace the separate bullish and bearish proportion formulas with a single shared definition.
 
-### Position of the close
+```
+Range     = H - L
+Body      = abs(C - O)
+UpperWick = H - max(O, C)
+LowerWick = min(O, C) - L
+
+BodyRatio      = Body / Range
+UpperWickRatio = UpperWick / Range
+LowerWickRatio = LowerWick / Range
+```
+
+These formulas are symmetric for bullish and bearish candles. They also eliminate the need to maintain two copies of the same calculations.
+
+For `Range = 0`, do not calculate the ratios. Classify the candle as `flat_neutral_candle` when `C = O`; otherwise, return `flat_bullish_candle` or `flat_bearish_candle` if such inputs are permitted. Under valid OHLC data, a zero-range candle necessarily has `C = O`.
+
+### 7.3 Revised shape taxonomy
+
+The table below defines the new thresholds. The bullish and bearish columns show the corresponding shape names.
+
+| Shape geometry         | Body ratio                              | Wick requirements                                                  | Bullish shape                   | Bearish shape                   |
+| ---------------------- | --------------------------------------- | ------------------------------------------------------------------ | ------------------------------- | ------------------------------- |
+| Marubozu               | `>= 0.90`                               | Both wicks `<= 0.05`                                               | `bullish_marubozu`              | `bearish_marubozu`              |
+| Momentum               | `>= 0.60` and `< 0.90`                  | Both wicks `<= 0.20`                                               | `bullish_momentum`              | `bearish_momentum`              |
+| Rejection              | `>= 0.60` and `< 0.90`                  | Rejection-side wick `>= 0.15`; opposite wick `<= 0.10`             | `bullish_lower_rejection`       | `bearish_upper_rejection`       |
+| Hammer-shaped          | `> 0` and `<= 0.35`                     | Long wick `>= 0.50`; short wick `<= 0.10`; long wick `>= 2 × body` | `bullish_hammer_shape`          | `bearish_hammer_shape`          |
+| Inverted-hammer-shaped | `> 0` and `<= 0.35`                     | Long wick `>= 0.50`; short wick `<= 0.10`; long wick `>= 2 × body` | `bullish_inverted_hammer_shape` | `bearish_inverted_hammer_shape` |
+| Spinning top           | `> 0` and `<= 0.30`                     | Both wicks `>= 0.20`                                               | `bullish_spinning_top`          | `bearish_spinning_top`          |
+| Standard               | All remaining valid non-neutral candles | No additional restriction                                          | `bullish_standard`              | `bearish_standard`              |
+
+For the rejection row, the rejection-side wick is the lower wick for bullish candles and the upper wick for bearish candles. For hammer-shaped candles, the long wick is the lower wick for bullish candles and the upper wick for bearish candles. For inverted-hammer-shaped candles, these are reversed.
+
+One important adjustment to the previous draft: the body-ratio bands for marubozu, momentum, rejection, and the smaller-body shapes are explicitly separated. The standard shape captures the remaining valid geometries.
+
+
+### 7.5 One refinement also improved 
+
+
+Define two canonical wick ratios relative to the candle's direction:
+
+```
+OpenSideWickRatio  = UpperWickRatio if bearish
+                     LowerWickRatio if bullish
+
+CloseSideWickRatio = LowerWickRatio if bearish
+                     UpperWickRatio if bullish
+```
+
+## 8. Required acceptance tests
+
+- Every valid bullish candle receives exactly one `bullish_*` shape.
+- Every valid bearish candle receives exactly one `bearish_*` shape.
+- Mirroring a bullish candle's geometry vertically produces the corresponding bearish shape.
+- A flat neutral candle is classified before any ratio calculation.
+- A non-flat doji is classified as `doji_neutral_candle`.
+- No candle satisfies two shape rules simultaneously.
+- Every valid non-neutral candle that does not match a specialized shape receives `standard`.
+- Threshold tests cover values immediately below, exactly at, and immediately above each boundary.
+
+This implementation above is functioning in a POC python code python/candle_shape.py for more details and the code can be copied and incorporated as a function.
+
+
+## 9  Position of the close
 #### CloseLocation = (C - L) / Range
 
-### Price-relative movement
+## 10  Price-relative movement
 
 #### ReferencePrice = O (Open) 
 #### BodyPercent    = Body  / ReferencePrice * 100
 #### RangePercent   = Range / ReferencePrice * 100
 
 
-### ATR 
-#### Candle ATR(9)
-##### Algorithm
+##  11 ATR 
+### Candle ATR(9)
+#### Initial ATR
 
-1. Calculate True Range for every candle.
-2. Calculate the average of the first 9 True Range values.
-3. Store this result as the first ATR value.
-4. Apply Wilder's smoothing to all subsequent periods.
-5. Return ATR values aligned with the source data index.
+The first ATR value is calculated using a simple arithmetic average:
+
+```text
+ATR(n) =
+(TR1 + TR2 + ... + TRn) / n
+```
+
+where n is the selected ATR lookback period.
+
+---
+
+#### Subsequent ATR Values
+
+After the initial ATR is obtained, Wilder's smoothing method is used:
+
+```text
+ATR(t) =
+((ATR(t-1) × (n - 1)) + TR(t)) / n
+```
+
+This smoothing method reduces noise while maintaining responsiveness to volatility changes.
+
+---
 
 ---
 
@@ -150,9 +221,9 @@ ATR = 5
 
 ---
 
-### Move size (Magnitude)relative to the Average True Range of last interval 
-#### BodyATR  = Body  / ATR(t-1)
-#### RangeATR = Range / ATR(t-1)
+## 12  Move size (Magnitude)relative to the Average True Range of last interval 
+### BodyATR  = Body  / ATR(t-1)
+### RangeATR = Range / ATR(t-1)
 
 >Example: $100 asset
 O = 100.00
@@ -176,68 +247,10 @@ BodyPercent = 2.00 / 100.00 = 2.00%
 
 ---
 
-### Candlestick bullish shape 
+## 13  Open location
+###  OpenLocation = (O - L) / Range
 
-if bodyRatio >= 0.90
-   and upperWickRatio <= 0.05
-   and lowerWickRatio <= 0.05:
-       shape = "bullish_marubozu"
-
-else if bodyRatio >= 0.60
-   and upperWickRatio <= 0.10
-   and lowerWickRatio >= 0.15:
-       shape = "bullish_lower_rejection"
-
-else if bodyRatio >= 0.60
-   and upperWickRatio <= 0.20
-   and lowerWickRatio <= 0.20:
-       shape = "bullish_momentum"
-
-else if bodyRatio <= 0.35
-   and lowerWickRatio >= 0.50
-   and upperWickRatio <= 0.10
-   and lowerWick >= 2 * body:
-       shape = "bullish_hammer"
-
-else if bodyRatio <= 0.30
-   and upperWickRatio >= 0.20
-   and lowerWickRatio >= 0.20:
-       shape = "bullish_spinning_top"
-
-else if bodyRatio <= 0.35
-   and upperWickRatio >= 0.50
-   and lowerWickRatio <= 0.10
-   and upperWick >= 2 * body:
-       shape = "bullish_inverted_hammer"
-
-else:
-       shape = "unclassified_bullish"
-
-
-## Bearish candle calculations
-
-A bearish candle requires:
-
-C < O
-### direction = 'bearish'
-
-### Range     = H - L
-### Body      = O - C
-### UpperWick = H - O
-### LowerWick = C - L
-
-### Candle Bearish shape proportions
-#### BodyRatio      = Body      / Range
-#### UpperWickRatio = UpperWick / Range
-#### LowerWickRatio = LowerWick / Range
-
-### Close location
-#### CloseLocation = (C - L) / Range
-
-### Open location
-#### OpenLocation = (O - L) / Range
-
-###  Normalize price against the asset price
+## 14  Normalize price against the asset price
 
 
 #### ReferencePrice = O (Open)
@@ -247,56 +260,17 @@ C < O
 #### UpperWickPercent = UpperWick / ReferencePrice * 100
 #### LowerWickPercent = LowerWick / ReferencePrice * 100
 
-### Normalize price against recent volatility
+## 15  Normalize price against recent volatility
 
 
-#### BodyATR      = Body      / ATR from the previous period
-#### RangeATR     = Range     / ATR from the previous period
-#### UpperWickATR = UpperWick / ATR from the previous period
-#### LowerWickATR = LowerWick / ATR from the previous period
-
-
-### Candlestick bearish  shape 
-
-if bodyRatio >= 0.90
-   and upperWickRatio <= 0.05
-   and lowerWickRatio <= 0.05:
-       shape = "bearish_marubozu"
-
-else if bodyRatio >= 0.60
-   and upperWickRatio >= 0.15
-   and upperWickRatio <= 0.35
-   and lowerWickRatio <= 0.10:
-       shape = "bearish_upper_rejection_momentum"
-
-else if bodyRatio >= 0.60
-   and upperWickRatio <= 0.20
-   and lowerWickRatio <= 0.20:
-       shape = "bearish_momentum"
-
-else if bodyRatio <= 0.35
-   and upperWickRatio >= 0.50
-   and lowerWickRatio <= 0.10
-   and upperWick >= 2 * body:
-       shape = "bearish_shooting_star_shape"
-
-else if bodyRatio <= 0.30
-   and upperWickRatio >= 0.20
-   and lowerWickRatio >= 0.20:
-       shape = "bearish_spinning_top"
-
-else if bodyRatio <= 0.35
-   and lowerWickRatio >= 0.50
-   and upperWickRatio <= 0.10
-   and lowerWick >= 2 * body:
-       shape = "bearish_long_lower_wick"
-
-else:
-       shape = "unclassified_bearish"
+###  BodyATR      = Body      / ATR from the previous period
+###  RangeATR     = Range     / ATR from the previous period
+###  UpperWickATR = UpperWick / ATR from the previous period
+###  LowerWickATR = LowerWick / ATR from the previous period
 
 
 
-# Magnitud clasification for both bullish and bearish
+## 16 Magnitud clasification for both bullish and bearish
 if rangeATR >= 2.0:
     magnitud = "monster_move"
 else if rangeATR >= 1.50:
@@ -308,7 +282,7 @@ else if rangeATR >= 0.50:
 else:
     magnitude = "small"
 
-# RVOL 
+# 17 RVOL 
 ## Method A: Standard Daily RVOL
 
 The fundamental calculation formula is straightforward:
@@ -337,38 +311,38 @@ Divide the current period's volume by that historical average:
 
 
 
-# EMA9
+# 18 EMA9
 formula in this repo at  docs/specs/EMA/README.md
 
 
-# EMA50
+# 19 EMA50
 Warm-Up  (periods 1 through 49)
 - resolve to Null/NaN
 
-# EMA100
+# 20 EMA100
 Warm-Up  (periods 1 through 99)
 - resolve to Null/NaN
 
-# EMA200
+# 21 EMA200
 Warm-Up  (periods 1 through 199)
 - resolve to Null/NaN
 
-# SMA20
+# 22 SMA20
 formula in this repo at  docs/specs/SMA/README.md
 Warm-Up  (periods 1 through 19)
 - resolve to Null/NaN
 
-# SLOPE9
+# 23 SLOPE9
 Slope % = ((current period EMA9 − EMA9 9 periods ago ) / EMA9 9 periods ago ) × 100
 
-# SLOPE20
+# 24 SLOPE20
 ## Only one calculated using the slow SMA instead of EMA 
 Slope % = ((current period SMA20 − SMA20 9 periods ago ) / SMA20 9 periods ago ) × 100
 
-# SLOPE50
+# 25 SLOPE50
 Slope % = ((current period EMA50 − EMA50 9 periods ago ) / EMA50 9 periods ago ) × 100
 
-# SLOPE200
+# 26 SLOPE200
 Slope % = ((current period EMA200 − EMA200 9 periods ago ) / EMA200 9 periods ago ) × 100
 
 ---
@@ -384,7 +358,7 @@ Slope % = ((current period EMA200 − EMA200 9 periods ago ) / EMA200 9 periods 
 ```
 ---
 
-# Candlesticks Predecessor Relationship
+# 27 Candlesticks Predecessor Relationship
 
     How a current candle behaves relative to its predecessor (the previous candle) 
 
