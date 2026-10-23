@@ -38,7 +38,7 @@ Datetime,,,,,
     Ticker,Date,time,High,Low,Open,Close,Volume, {New Fields , order and value as in the json formated file }
 
 
-3. Since we are treating real data we will not check the OHLC consistency and try to catch any into a known shape.
+3. Since we are treating real data , resampled by another process our OHLC consistency check is minimum as defined in ### 7.3.1 . We also define that:
     3.1 When C = O  will be a plan doji candle
     3.2 When H = L will be a flat candle 
 
@@ -133,6 +133,10 @@ CloseSideWickRatio = LowerWickRatio if bearish
                      UpperWickRatio if bullish
 ```
 
+### 7.6
+- This implementation above is functioning in a POC python code python/candle_shape.py for more details 
+- python/candle_shape.py can be used for this implementation adapting the code as a function.
+
 ## 8. Required acceptance tests
 
 - Every valid bullish candle receives exactly one `bullish_*` shape.
@@ -144,7 +148,7 @@ CloseSideWickRatio = LowerWickRatio if bearish
 - Every valid non-neutral candle that does not match a specialized shape receives `standard`.
 - Threshold tests cover values immediately below, exactly at, and immediately above each boundary.
 
-This implementation above is functioning in a POC python code python/candle_shape.py for more details and the code can be copied and incorporated as a function.
+
 
 
 ## 9  Position of the close
@@ -316,6 +320,10 @@ Step 3: Compute the RVOL ratio
 Divide the current period's volume by that historical average:
 \(\text{RVOL}=\frac{28,000}{14,111.11}\approx \mathbf{1.98}\)
 
+- Use the previous 9 observations as the baseline and return null when the baseline is unavailable or invalid. 
+
+- Return 0.0 only when the current volume is genuinely zero and the baseline is positive. 
+
 
 
 # 18 EMA9
@@ -345,16 +353,24 @@ Divide the current period's volume by that historical average:
 
 # 23 SLOPE9
 Slope % = ((current period EMA9 − EMA9 9 periods ago ) / EMA9 9 periods ago ) × 100
+- warm-up period = 9
+- Return null unless both moving-average values exist and the denominator is valid
 
 # 24 SLOPE20
 ## Only one calculated using the slow SMA instead of EMA 
 Slope % = ((current period SMA20 − SMA20 9 periods ago ) / SMA20 9 periods ago ) × 100
+- warm-up period = 20
+- Return null unless both moving-average values exist and the denominator is valid
 
 # 25 SLOPE50
 Slope % = ((current period EMA50 − EMA50 9 periods ago ) / EMA50 9 periods ago ) × 100
+- warm-up period = 50
+- Return null unless both moving-average values exist and the denominator is valid
 
 # 26 SLOPE200
 Slope % = ((current period EMA200 − EMA200 9 periods ago ) / EMA200 9 periods ago ) × 100
+- warm-up period = 200
+- Return null unless both moving-average values exist and the denominator is valid
 
 ---
 
