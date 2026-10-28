@@ -307,76 +307,9 @@ Before considering the two dimensions complete, test their combination—not jus
 #### RangePercent   = Range / ReferencePrice * 100
 
 
-##  11 ATR 
-### Candle ATR(9)
-#### Initial ATR
-
-The first ATR value is calculated using a simple arithmetic average:
-
-```text
-ATR(n) =
-(TR1 + TR2 + ... + TRn) / n
-```
-
-where n is the selected ATR lookback period.
-
----
-
-#### Subsequent ATR Values
-
-After the initial ATR is obtained, Wilder's smoothing method is used:
-
-```text
-ATR(t) =
-((ATR(t-1) × (n - 1)) + TR(t)) / n
-```
-
-This smoothing method reduces noise while maintaining responsiveness to volatility changes.
-
----
-
----
-
-##### Worked Example ATR(3)
-
-Input:
-
-| High | Low | Close |
-|------|------|------|
-| 105 | 100 | 102 |
-| 108 | 103 | 107 |
-| 110 | 106 | 109 |
-
-True Range values:
-
-```text
-TR1 = 105 - 100 = 5
-
-TR2 = max(
-108 - 103,
-|108 - 102|,
-|103 - 102|
-)
-= max(5, 6, 1)
-= 6
-
-TR3 = max(
-110 - 106,
-|110 - 107|,
-|106 - 107|
-)
-= max(4, 3, 1)
-= 4
-```
-
-For period = 3:
-
-```text
-ATR = (5 + 6 + 4) / 3
-ATR = 5
-```
-
----
+##  11 ATR(9)
+- Calculation , formula ,rules  and example are detailed in docs/specs/ATR/README.md
+- The loopback for this implementation is 9 with a warm-up period (from 1 - 8)
 
 ## 12  Move size (Magnitude)relative to the Average True Range of last interval 
 ### BodyATR  = Body  / ATR(t-1)
@@ -473,9 +406,9 @@ Divide the current period's volume by that historical average:
 
 
 # 18 EMA9
-- Warm-Up  (periods 1 through 9)
+- Warm-Up  (periods 1 through 8)
 - Resolve to Null/NaN
-- formula in this repo at  docs/specs/EMA20/README.md and for EMA in general docs/specs/02_EMA_Specification.md
+- formula in this repo at  docs/specs/EMA9/README.md and for EMA in general docs/specs/02_EMA_Specification.md
 
 
 # 19 EMA50

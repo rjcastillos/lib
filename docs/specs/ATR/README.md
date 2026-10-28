@@ -1,212 +1,785 @@
 # Average True Range (ATR) Technical Specification
 
-## Purpose
-
+## 1. Purpose
 The Average True Range (ATR) is a volatility indicator introduced by J. Welles Wilder Jr. in *New Concepts in Technical Trading Systems* (1978).
 
-ATR measures the average price movement of an asset over a specified lookback period, considering both intraperiod range and gaps between periods.
+The Average True Range (ATR) measures market volatility (price movement ) of an asset by calculating the average of the **True Range (TR)** over a specified lookback period.
 
-ATR does not indicate trend direction. It measures only volatility.
+ATR measures:
 
----
+- Volatility
+- Price expansion and contraction
+- Risk
+- Stop-loss sizing
+- Position sizing
 
-# Definitions
+ATR does **not** measure trend direction.
 
-| Symbol | Description |
-|----------|-------------|
-| H(t) | High price of current period |
-| L(t) | Low price of current period |
-| C(t) | Close price of current period |
-| C(t-1) | Previous period close |
-| TR(t) | True Range |
-| ATR(t) | Average True Range |
-| n | ATR lookback period (default: 14) |
+A rising ATR indicates increasing volatility.
+
+A falling ATR indicates decreasing volatility.
 
 ---
 
-# True Range Calculation
+# 2. Inputs
 
-For each period:
+## Required Inputs
+
+| Parameter | Type | Description |
+|------------|------|-------------|
+| High | float | Bar high price |
+| Low | float | Bar low price |
+| Close | float | Bar close price |
+| Period | integer | ATR lookback period |
+
+---
+
+## Data Requirements
+
+For each bar:
 
 ```text
-TR(t) = max(
-    H(t) - L(t),
-    |H(t) - C(t-1)|,
-    |L(t) - C(t-1)|
+High >= Low
+
+High > 0
+Low > 0
+Close > 0
+```
+
+---
+
+# 3. Data Validation
+
+A bar is considered valid when:
+
+```text
+High  != NULL
+Low   != NULL
+Close != NULL
+
+High > 0
+Low > 0
+Close > 0
+```
+
+---
+
+## Invalid Values
+
+The following values are invalid:
+
+```text
+NULL
+NaN
+0
+Negative values
+Infinity
+```
+
+---
+
+# 4. True Range (TR)
+
+ATR is based on the concept of **True Range**.
+
+The True Range captures both:
+
+- Intrabar movement
+- Gaps between bars
+
+---
+
+## Formula
+
+For bar t:
+
+```text
+TR = MAX(
+
+    High - Low,
+
+    ABS(High - PreviousClose),
+
+    ABS(Low - PreviousClose)
+
 )
 ```
 
-For the first candle where no previous close exists:
+---
+
+# 5. True Range Components
+
+### Component 1
+
+Current bar range:
 
 ```text
-TR(1) = H(1) - L(1)
+High - Low
+```
+
+Example:
+
+```text
+High = 105
+Low  = 100
+
+Range = 5
 ```
 
 ---
 
-# ATR Calculation
+### Component 2
 
-## Initial ATR
-
-The first ATR value is calculated using a simple arithmetic average:
+Gap up measurement:
 
 ```text
-ATR(n) =
-(TR1 + TR2 + ... + TRn) / n
+ABS(High - Previous Close)
 ```
-
-where n is the selected ATR lookback period.
 
 ---
 
-## Subsequent ATR Values
+### Component 3
 
-After the initial ATR is obtained, Wilder's smoothing method is used:
+Gap down measurement:
 
 ```text
-ATR(t) =
-((ATR(t-1) × (n - 1)) + TR(t)) / n
+ABS(Low - Previous Close)
 ```
 
-This smoothing method reduces noise while maintaining responsiveness to volatility changes.
+---
+
+### Final True Range
+
+Select the largest value:
+
+```text
+TR = MAX(Component1, Component2, Component3)
+```
 
 ---
 
-# Algorithm
+# 6. First Bar Special Case
 
-1. Calculate True Range for every candle.
-2. Calculate the average of the first n True Range values.
-3. Store this result as the first ATR value.
-4. Apply Wilder's smoothing to all subsequent periods.
-5. Return ATR values aligned with the source data index.
+The first bar has no previous close.
+
+Therefore:
+
+```text
+TR = High - Low
+```
 
 ---
 
-# Worked Example
+## Example
 
-Input:
+```text
+High = 105
+Low = 100
+```
+
+```text
+TR = 105 - 100
+
+TR = 5
+```
+
+---
+
+# 7. ATR Calculation Method
+
+The industry standard ATR uses:
+
+```text
+Wilder's Smoothing Method
+```
+
+which behaves similarly to an EMA but uses a different smoothing constant.
+
+---
+
+# 8. ATR Initialization
+
+Before ATR can be calculated:
+
+1. Calculate TR values
+2. Collect N TR observations
+3. Compute the first ATR using an arithmetic average
+
+---
+
+## Initial ATR Formula
+
+```text
+ATR_initial
+
+=
+(TR1 + TR2 + ... + TRN)
+
+÷ N
+```
+
+---
+
+# 9. ATR Recursive Formula
+
+After initialization:
+
+```text
+ATR_t
+
+=
+
+(
+ATR_(t-1) × (N - 1)
+
++ TR_t
+
+)
+
+÷ N
+```
+
+Equivalent form:
+
+```text
+ATR_t
+
+=
+
+ATR_(t-1)
+
++
+
+(TR_t - ATR_(t-1))
+
+÷ N
+```
+
+This form is usually preferred for implementation.
+
+---
+
+# 10. Warm-Up Period
+
+## Best Practice
+
+ATR requires a complete TR history before producing valid values.
+
+For ATR(N):
+
+```text
+Output NULL
+until N True Range values exist.
+```
+
+---
+
+## Example
+
+ATR(5)
+
+| Index | ATR |
+|---------|---------|
+| 0 | NULL |
+| 1 | NULL |
+| 2 | NULL |
+| 3 | NULL |
+| 4 | First ATR |
+
+---
+
+## Never Use
+
+```text
+0
+```
+
+during the warm-up period.
+
+Use:
+
+```text
+NULL
+```
+
+instead.
+
+---
+
+# 11. Worked Example (ATR(5))
+
+A small lookback period is used purely for illustration.
+
+The same process applies to:
+
+```text
+ATR(9)
+ATR(14)
+ATR(20)
+ATR(50)
+```
+
+---
+
+## Market Data
+
+| Bar | High | Low | Close |
+|------|------|------|------|
+| 1 | 105 | 100 | 102 |
+| 2 | 107 | 101 | 106 |
+| 3 | 110 | 104 | 108 |
+| 4 | 111 | 105 | 106 |
+| 5 | 109 | 102 | 103 |
+| 6 | 108 | 101 | 107 |
+
+---
+
+# 12. Calculate True Range
+
+## Bar 1
+
+No previous close:
+
+```text
+TR1 = High - Low
+
+TR1 = 105 - 100
+
+TR1 = 5
+```
+
+---
+
+## Bar 2
+
+Previous Close:
+
+```text
+102
+```
+
+Components:
+
+```text
+107 - 101 = 6
+
+|107 - 102| = 5
+
+|101 - 102| = 1
+```
+
+TR:
+
+```text
+MAX(6,5,1)
+
+TR2 = 6
+```
+
+---
+
+## Bar 3
+
+Previous Close:
+
+```text
+106
+```
+
+Components:
+
+```text
+110 - 104 = 6
+
+|110 - 106| = 4
+
+|104 - 106| = 2
+```
+
+TR:
+
+```text
+TR3 = 6
+```
+
+---
+
+## Bar 4
+
+Previous Close:
+
+```text
+108
+```
+
+Components:
+
+```text
+111 - 105 = 6
+
+|111 - 108| = 3
+
+|105 - 108| = 3
+```
+
+TR:
+
+```text
+TR4 = 6
+```
+
+---
+
+## Bar 5
+
+Previous Close:
+
+```text
+106
+```
+
+Components:
+
+```text
+109 - 102 = 7
+
+|109 - 106| = 3
+
+|102 - 106| = 4
+```
+
+TR:
+
+```text
+TR5 = 7
+```
+
+---
+
+## Bar 6
+
+Previous Close:
+
+```text
+103
+```
+
+Components:
+
+```text
+108 - 101 = 7
+
+|108 - 103| = 5
+
+|101 - 103| = 2
+```
+
+TR:
+
+```text
+TR6 = 7
+```
+
+---
+
+# 13. True Range Table
+
+| Bar | TR |
+|------|------|
+| 1 | 5 |
+| 2 | 6 |
+| 3 | 6 |
+| 4 | 6 |
+| 5 | 7 |
+| 6 | 7 |
+
+---
+
+# 14. Calculate Initial ATR(5)
+
+Using first 5 TR values:
+
+```text
+5 + 6 + 6 + 6 + 7
+
+= 30
+```
+
+```text
+ATR
+
+= 30 / 5
+
+= 6.0
+```
+
+Result:
+
+```text
+ATR5[5] = 6.0
+```
+
+---
+
+# 15. Calculate Next ATR Value
+
+New TR:
+
+```text
+TR6 = 7
+```
+
+Previous ATR:
+
+```text
+ATR5 = 6.0
+```
+
+Apply Wilder Formula:
+
+```text
+ATR
+
+=
+
+((6.0 × 4) + 7)
+
+÷ 5
+```
+
+```text
+=(24 + 7)
+
+÷ 5
+
+=31 ÷ 5
+
+=6.2
+```
+
+Result:
+
+```text
+ATR6 = 6.2
+```
+
+---
+
+# 16. Final Output
+
+| Bar | TR | ATR(5) |
+|------|------|------|
+| 1 | 5 | NULL |
+| 2 | 6 | NULL |
+| 3 | 6 | NULL |
+| 4 | 6 | NULL |
+| 5 | 7 | 6.00 |
+| 6 | 7 | 6.20 |
+
+---
+
+# 17. Missing Data Rules
+
+If any required value is invalid:
+
+```text
+High
+Low
+Close
+```
+
+then:
+
+```text
+TR = NULL
+```
+
+and
+
+```text
+ATR = NULL
+```
+
+---
+
+## Example
 
 | High | Low | Close |
 |------|------|------|
 | 105 | 100 | 102 |
-| 108 | 103 | 107 |
-| 110 | 106 | 109 |
+| NULL | 101 | 106 |
 
-True Range values:
-
-```text
-TR1 = 105 - 100 = 5
-
-TR2 = max(
-108 - 103,
-|108 - 102|,
-|103 - 102|
-)
-= max(5, 6, 1)
-= 6
-
-TR3 = max(
-110 - 106,
-|110 - 107|,
-|106 - 107|
-)
-= max(4, 3, 1)
-= 4
-```
-
-For period = 3:
+Result:
 
 ```text
-ATR = (5 + 6 + 4) / 3
-ATR = 5
+TR = NULL
+
+ATR = NULL
 ```
 
 ---
 
-# Trading Applications
+# 18. Recommended Implementation Behavior
 
-## Loss Protection
+## Input Validation
 
-ATR is commonly used to place stop losses that adapt to volatility.
+```text
+IF High <= 0 → Invalid
+
+IF Low <= 0 → Invalid
+
+IF Close <= 0 → Invalid
+```
+
+---
+
+## Warm-Up
+
+```text
+Bars before ATR initialization
+
+→ NULL
+```
+
+---
+
+## Missing Data
+
+```text
+Invalid bar
+
+→ NULL
+```
+
+---
+
+## Precision
+
+Recommended:
+
+```text
+Storage = float64
+
+Display = 2-4 decimals
+```
 
 Examples:
 
 ```text
-Stop Loss = Entry Price - (2 × ATR)
+ATR(14)=2.54
+
+ATR(14)=2.5438
 ```
-
-```text
-Trailing Stop = Highest Close - (3 × ATR)
-```
-
-## Profit Taking
-
-ATR may assist in estimating realistic profit objectives.
-
-```text
-Target = Entry Price + (2 × ATR)
-```
-
-ATR targets should be combined with:
-
-- Resistance levels
-- Fibonacci extensions
-- Supply zones
-- Risk/Reward objectives
-
-## Position Sizing
-
-Higher ATR values imply greater volatility.
-
-To maintain the same monetary risk per trade:
-
-```text
-Position Size = Maximum Risk / Stop Distance
-```
-
-Since stop distance often depends on ATR, position size naturally decreases when volatility rises.
 
 ---
 
-# Implementation Requirements
+# 19. Pseudocode
 
-A compliant ATR implementation shall:
+```text
+FOR each bar
 
-1. Accept OHLC price data.
-2. Calculate True Range according to the specification.
-3. Use a configurable lookback period.
-4. Calculate the initial ATR using a simple average.
-5. Apply Wilder's smoothing thereafter.
-6. Return ATR values aligned with input records.
-7. Preserve numerical precision appropriate for the instrument traded.
+    IF first bar
+
+        TR =
+            High - Low
+
+    ELSE
+
+        TR = MAX(
+
+            High - Low,
+
+            ABS(High - PrevClose),
+
+            ABS(Low - PrevClose)
+
+        )
+
+END FOR
+
+
+First ATR
+
+=
+
+AVERAGE(
+    First N TR values
+)
+
+
+FOR remaining bars
+
+    ATR =
+        ATR_previous
+        +
+        (TR - ATR_previous)
+          / N
+
+END FOR
+```
 
 ---
 
-# Complexity
+# 20. Summary
 
-Time Complexity:
-
-```text
-O(n)
-```
-
-Space Complexity:
+## True Range
 
 ```text
-O(n)
+TR = MAX(
+
+    High - Low,
+
+    ABS(High - PreviousClose),
+
+    ABS(Low - PreviousClose)
+
+)
 ```
-
-or
-
-```text
-O(1)
-```
-
-for streaming implementations.
 
 ---
 
-# References
+## Initial ATR
 
-- J. Welles Wilder Jr., New Concepts in Technical Trading Systems (1978)
-- ATR standard definition used throughout technical analysis platforms and charting systems
+```text
+ATR_initial
+
+=
+
+Average of first N TR values
+```
+
+---
+
+## Ongoing ATR
+
+```text
+ATR
+
+=
+
+ATR_previous
+
++
+
+(TR - ATR_previous)
+
+÷ N
+```
+
+---
+
+## Best Practices
+
+```text
+Warm-up          -> NULL
+Missing Values   -> NULL
+Zero Values      -> Invalid
+Initialization   -> Average Of First N TR
+Smoothing        -> Wilder Method
+Storage          -> float64
+Display          -> 2-4 decimals
+```
+
+ATR measures volatility only.
+
+It does not indicate trend direction, bullishness, or bearishness.
