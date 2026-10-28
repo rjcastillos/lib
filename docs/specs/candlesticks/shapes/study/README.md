@@ -17,7 +17,6 @@ Date,,,,,
 If the data extraction is of a lower interval like the one below then it does contains a timestamp.
 
 
-
 Price,Close,High,Low,Open,Volume
 Ticker,NVDA,NVDA,NVDA,NVDA,NVDA
 Datetime,,,,,
@@ -25,6 +24,14 @@ Datetime,,,,,
 2026-10-16 10:30:00-04:00,216.50990295410156,218.67599487304688,216.1499938964
 
 ## When the time is present this is the start of the period in "America/New_York" time. Any data massage is out side the scope of this study.
+
+- Each row represent one candle or bar each of these:
+
+1. Belong to one instrument and one timeframe per calculation.
+2. Are ordered chronologically (when apply) in ascending timestamp order.
+3. Have at most one bar per day/timestamp.
+4. Use the previous bar in that ordered series for the previous close in TR calculations.
+
 
 ---
 
@@ -39,15 +46,44 @@ Datetime,,,,,
 
     2.1.2 Apply the same field names and meanings in JSON and CSV. For CSV, flatten the nested fields into columns such as Direction, Shape, PredecessorHighRelation, PredecessorLowRelation, and PredecessorPatternCode
 
+    2.2  `null` versus Python `NaN`
 
-3. Since we are treating real data , resampled by another process our OHLC consistency check is minimum as defined in ### 7.3.1 . We also define that:
+    These are different representations of an unavailable value:
+
+    - Python/pandas calculation layer: use `NaN` for unavailable numeric results if that is what the implementation already returns.
+
+    - JSON output: convert unavailable numeric values to JSON `null`. Standard JSON does not support `NaN`.
+
+   - CSV output: represent unavailable numeric values as an empty field by default and not a literal `NULL`
+
+    Do not allow `NaN` to leak into JSON as the non-standard token `NaN`. Apply the conversion at the serialization boundary so the calculation layer can retain its existing numeric representation.
+
+
+3. Since we are treating real data , resampled by another process our OHLC consistency check is as follows :
+- All required OHLC values are numeric and finite.
+- `Open > 0`, `High > 0`, `Low > 0`, and `Close > 0`.
+- `High >= Low`.
+- `High >= max(Open, Close)`.
+- `Low <= min(Open, Close)`.
+- Volume is finite and non-negative when present, with missing-volume handling defined separately.
+- The handling of this situation shall as detailed in `D. OHLC validation`
+
+- We also define that:
     3.1 When C = O  will be a plan doji candle
     3.2 When H = L will be a flat candle 
 
-4.  This document narrows some formulas implementation and might supersede the value of parameters in order to customize it ,but does not change any wide known industry formula
+
+4.  This document narrows some formulas implementation and these might supersede the value of parameters in order to customize it ,but does not change any wide known industry formula
 
 5.  Warm-Up period usually on this study go from 1 through 9 except for specifics Moving Average where n <> 9
-    - resolve to Null/NaN 
+    - resolve to Null/NaN
+    - `period` must be an integer greater than or equal to 1.
+    - This project pipeline default is 9, to match the existing ATR(9) specification.
+    - An explicitly supplied valid period overrides the default.
+    - Reject zero, negative values, non-integer values, and booleans.
+    - The initial ATR requires `period` consecutive valid TR observations.
+    - The first ATR is seeded with the arithmetic mean of those `period` TR values.
+
 6.  Zero or Missing Baseline Volume Division by Zero (#DIV/0!) runtime crash.
     - resolve to 0.0 
 
@@ -332,6 +368,7 @@ Before considering the two dimensions complete, test their combination—not jus
 ##  11 ATR(9)
 - Calculation , formula ,rules  and example are detailed in docs/specs/ATR/README.md
 - The loopback for this implementation is 9 with a warm-up period (from 1 - 8)
+
 
 ## 12  Move size (Magnitude) relative to the Average True Range of last interval
 

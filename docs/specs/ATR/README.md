@@ -600,6 +600,21 @@ and
 ATR = NULL
 ```
 
+17.1 Restart the valid-TR seed sequence
+
+ consecutive-valid-observations policy:
+
+1. An invalid bar receives `TR = null` and `ATR = null`.
+2. If the current bar's OHLC or the previous close needed for TR is unavailable, its TR is null.
+3. After a TR is null, do not continue smoothing from the last ATR as if no observation were missing.
+4. Start collecting a new sequence of consecutive valid TR values.
+5. Once `N` consecutive valid TR values have been collected, seed ATR with their arithmetic mean.
+6. Continue with Wilder's smoothing:
+
+\\[ ATR_t=\frac{(N-1)ATR\_{t-1}+TR_t}{N} \\]
+
+This policy is conservative, easy to test, and prevents an ATR value from silently bridging a data gap.
+
 ---
 
 ## Example
