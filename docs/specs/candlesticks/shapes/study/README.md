@@ -94,6 +94,28 @@ These formulas are symmetric for bullish and bearish candles. They also eliminat
 
 For `Range = 0`, do not calculate the ratios. Classify the candle as `flat_neutral_candle` when `C = O`; otherwise, return `flat_bullish_candle` or `flat_bearish_candle` if such inputs are permitted. Under valid OHLC data, a zero-range candle necessarily has `C = O`.
 
+>Example: $100 asset
+O = 100.00
+H = 102.05
+L = 99.95
+C = 102.00
+
+
+Calculations:
+
+Range     = 2.10
+Body      = 2.00
+UpperWick = 0.05
+LowerWick = 0.05
+
+BodyRatio      = 2.00 / 2.10 = 95.24%
+UpperWickRatio = 0.05 / 2.10 = 2.38%
+LowerWickRatio = 0.05 / 2.10 = 2.38%
+
+BodyPercent = 2.00 / 100.00 = 2.00%
+
+---
+
 ### 7.3 Candle model
 
 Every input row represents one candle. Calculate its own direction and shape, and then compare its high and low with those of the preceding candle.
@@ -303,64 +325,32 @@ Before considering the two dimensions complete, test their combination—not jus
 ## 10  Price-relative movement
 
 #### ReferencePrice = O (Open) 
-#### BodyPercent    = Body  / ReferencePrice * 100
-#### RangePercent   = Range / ReferencePrice * 100
+#### BodyPercent    = Body  / ReferencePrice 
+#### RangePercent   = Range / ReferencePrice 
 
 
 ##  11 ATR(9)
 - Calculation , formula ,rules  and example are detailed in docs/specs/ATR/README.md
 - The loopback for this implementation is 9 with a warm-up period (from 1 - 8)
 
-## 12  Move size (Magnitude)relative to the Average True Range of last interval 
+## 12  Move size (Magnitude) relative to the Average True Range of last interval
+
 ### BodyATR  = Body  / ATR(t-1)
+
+-   Following example:
+    Body      = 2.00
+    ATR(9) of previous candle 1.70
+    - BodyATR =  2 / 1.70 = .17 
+
 ### RangeATR = Range / ATR(t-1)
 
->Example: $100 asset
-O = 100.00
-H = 102.05
-L = 99.95
-C = 102.00
+-   Following example:
+    Range     = 2.10
+    ATR(9) of previous candle 1.70
+    - RangeATR = 2.10 / 1.70 = .23
 
+### 12.1 Magnitude clasification for both bullish and bearish
 
-Calculations:
-
-Range     = 2.10
-Body      = 2.00
-UpperWick = 0.05
-LowerWick = 0.05
-
-BodyRatio      = 2.00 / 2.10 = 95.24%
-UpperWickRatio = 0.05 / 2.10 = 2.38%
-LowerWickRatio = 0.05 / 2.10 = 2.38%
-
-BodyPercent = 2.00 / 100.00 = 2.00%
-
----
-
-## 13  Open location
-###  OpenLocation = (O - L) / Range
-
-## 14  Normalize price against the asset price
-
-
-#### ReferencePrice = O (Open)
-
-#### BodyPercent      = Body      / ReferencePrice * 100
-#### RangePercent     = Range     / ReferencePrice * 100
-#### UpperWickPercent = UpperWick / ReferencePrice * 100
-#### LowerWickPercent = LowerWick / ReferencePrice * 100
-
-## 15  Normalize price against recent volatility
-
-
-###  BodyATR      = Body      / ATR from the previous period
-###  RangeATR     = Range     / ATR from the previous period
-###  UpperWickATR = UpperWick / ATR from the previous period
-###  LowerWickATR = LowerWick / ATR from the previous period
-
-
-
-## 16 Magnitud clasification for both bullish and bearish
 if rangeATR >= 2.0:
     magnitud = "monster_move"
 else if rangeATR >= 1.50:
@@ -371,6 +361,32 @@ else if rangeATR >= 0.50:
     magnitude = "normal"
 else:
     magnitude = "small"
+
+
+## 13  Open location
+###  OpenLocation = (O - L) / Range
+
+## 14  Normalize price against the asset price
+
+#### ReferencePrice = O (Open)
+
+#### BodyPercent      = Body      / ReferencePrice 
+#### RangePercent     = Range     / ReferencePrice 
+#### UpperWickPercent = UpperWick / ReferencePrice 
+#### LowerWickPercent = LowerWick / ReferencePrice 
+
+## 15  Normalize price against recent volatility
+
+###  UpperWickATR = UpperWick / ATR from the previous period
+###  LowerWickATR = LowerWick / ATR from the previous period
+
+
+## 16 Following example:
+- BodyPercent      = 2.00 / 2.10 = .9524
+- UpperWickPercent = 0.05 / 2.10 = 0.238
+- LowerWickPercent = 0.05 / 2.10 = 0.238
+
+- BodyPercent = 2.00 / 100.00 = 0.2
 
 # 17 RVOL 
 ## Method A: Standard Daily RVOL
@@ -469,9 +485,9 @@ Slope % = ((current period EMA200 − EMA200 9 periods ago ) / EMA200 9 periods 
 {
   "direction": "bearish",
   "shape": "bearish_marubozu",
-  "body_ratio": 0.9524,
-  "upper_wick_ratio": 0.0238,
-  "lower_wick_ratio": 0.0238,
+  "body_percent": 0.9524,
+  "upper_wick_percent": 0.0238,
+  "lower_wick_percent": 0.0238,
   "open_location": 0.9762,
   "close_location": 0.0238,
   "body_percent": 2.0,
