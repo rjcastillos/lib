@@ -85,9 +85,9 @@ Body      = abs(C - O)
 UpperWick = H - max(O, C)
 LowerWick = min(O, C) - L
 
-BodyRatio      = Body / Range
-UpperWickRatio = UpperWick / Range
-LowerWickRatio = LowerWick / Range
+BodyPercent      = Body / Range
+UpperWickPercent = UpperWick / Range
+LowerWickPercent = LowerWick / Range
 ```
 
 These formulas are symmetric for bullish and bearish candles. They also eliminate the need to maintain two copies of the same calculations.
@@ -108,11 +108,11 @@ Body      = 2.00
 UpperWick = 0.05
 LowerWick = 0.05
 
-BodyRatio      = 2.00 / 2.10 = 95.24%
-UpperWickRatio = 0.05 / 2.10 = 2.38%
-LowerWickRatio = 0.05 / 2.10 = 2.38%
+BodyPercent      = 2.00 / 2.10 = .9524
+UpperWickPercent  = 0.05 / 2.10 = 0.0238
+LowerWickPercent  = 0.05 / 2.10 = 0.0238
 
-BodyPercent = 2.00 / 100.00 = 2.00%
+BodyPercent = 2.00 / 100.00 = 0.02
 
 ---
 
