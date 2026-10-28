@@ -72,17 +72,23 @@ Datetime,,,,,
     3.1 When C = O  will be a plan doji candle
     3.2 When H = L will be a flat candle 
 
+3.1  `period` 
+    Period is a positive integer that specifies the number of observations used by a technical indicator or calculation over a lookback window. An observation is typically a candle or bar, but it may also be a value derived from a candle, such as True Range, volume, closing price, or another indicator's output.
+
+- `period` must be an integer greater than or equal to 1.
+- Shall be configurable , although in this project pipeline default is 9, to match the existing ATR(9) specification.
+- An explicitly supplied valid period overrides the default.
+- Reject zero, negative values, non-integer values, and booleans.
+- The initial ATR requires `period` consecutive valid TR observations.
+- The first ATR is seeded with the arithmetic mean of those `period` TR values.
+
+More details can be found on docs/specs/Indicators-general-considerations/README.md
 
 4.  This document narrows some formulas implementation and these might supersede the value of parameters in order to customize it ,but does not change any wide known industry formula
 
 5.  Warm-Up period usually on this study go from 1 through 9 except for specifics Moving Average where n <> 9
     - resolve to Null/NaN
-    - `period` must be an integer greater than or equal to 1.
-    - This project pipeline default is 9, to match the existing ATR(9) specification.
-    - An explicitly supplied valid period overrides the default.
-    - Reject zero, negative values, non-integer values, and booleans.
-    - The initial ATR requires `period` consecutive valid TR observations.
-    - The first ATR is seeded with the arithmetic mean of those `period` TR values.
+
 
 6.  Zero or Missing Baseline Volume Division by Zero (#DIV/0!) runtime crash.
     - resolve to 0.0 
