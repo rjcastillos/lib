@@ -37,6 +37,8 @@ Datetime,,,,,
     2.1.1  CSV column order:
     Ticker,Date,time,High,Low,Open,Close,Volume, {New Fields , order and value as in the json formated file }
 
+    2.1.2 Apply the same field names and meanings in JSON and CSV. For CSV, flatten the nested fields into columns such as Direction, Shape, PredecessorHighRelation, PredecessorLowRelation, and PredecessorPatternCode
+
 
 3. Since we are treating real data , resampled by another process our OHLC consistency check is minimum as defined in ### 7.3.1 . We also define that:
     3.1 When C = O  will be a plan doji candle
@@ -44,7 +46,7 @@ Datetime,,,,,
 
 4.  This document narrows some formulas implementation and might supersede the value of parameters in order to customize it ,but does not change any wide known industry formula
 
-5.  Warm-Up period usually on this study go from 1 through 9 except for spcefics Moving Average where n <> 9
+5.  Warm-Up period usually on this study go from 1 through 9 except for specifics Moving Average where n <> 9
     - resolve to Null/NaN 
 6.  Zero or Missing Baseline Volume Division by Zero (#DIV/0!) runtime crash.
     - resolve to 0.0 
@@ -72,7 +74,6 @@ C = Close
 5. Unclassified shapes are avoided for valid candles. The final fallback is a general shape such as `standard`, not a direction-specific unclassified shape.
 6. Zero-body candles are excluded from bullish/bearish shape rules. This avoids the problem of a zero body satisfying comparisons such as `wick >= 2 × body`.
 
-The proposed taxonomy uses six paired shapes plus a standard fallback. 
 
 ### 7.2 Canonical geometry formulas
 
@@ -93,61 +94,206 @@ These formulas are symmetric for bullish and bearish candles. They also eliminat
 
 For `Range = 0`, do not calculate the ratios. Classify the candle as `flat_neutral_candle` when `C = O`; otherwise, return `flat_bullish_candle` or `flat_bearish_candle` if such inputs are permitted. Under valid OHLC data, a zero-range candle necessarily has `C = O`.
 
-### 7.3 Revised shape taxonomy
-### 7.3.1 
-- Check for wick proportions.
-For valid OHLC data and nonzero range, the three ratios should sum to approximately
+### 7.3 Candle model
 
-        BodyRatio + UpperWickRatio + LowerWickRatio = 1
-In the case there is a variance of 1% > or 1% < a 1 print out in console:
-"Ticker ".$Ticker. "Has an invalid candle at".$time(in the feed)."Please check"
+Every input row represents one candle. Calculate its own direction and shape, and then compare its high and low with those of the preceding candle.
 
+| Dimension                   | Uses                       | Answers                                      |
+| --------------------------- | -------------------------- | -------------------------------------------- |
+| `direction`                 | Current O and C            | Was the candle bullish, bearish, or neutral? |
+| `shape`                     | Current O, H, L, C         | What is the candle’s geometry?               |
+| `predecessor.high_relation` | Current H vs previous H    | Did the high rise, fall, or stay equal?      |
+| `predecessor.low_relation`  | Current L vs previous L    | Did the low rise, fall, or stay equal?       |
+| `predecessor.pattern_code`  | Both predecessor relations | Which of the nine combinations occurred?     |
 
-The table below defines the new thresholds. The bullish and bearish columns show the corresponding shape names.
+Important: shape and predecessor relationship are independent classifications. The shape algorithm must not use the previous candle, and the predecessor algorithm must not use the candle’s shape or direction.
 
-| Shape geometry         | Body ratio                              | Wick requirements                                                  | Bullish shape                   | Bearish shape                   |
-| ---------------------- | --------------------------------------- | ------------------------------------------------------------------ | ------------------------------- | ------------------------------- |
-| Marubozu               | `>= 0.90`                               | Both wicks `<= 0.05`                                               | `bullish_marubozu`              | `bearish_marubozu`              |
-| Momentum               | `>= 0.60` and `< 0.90`                  | Both wicks `<= 0.20`                                               | `bullish_momentum`              | `bearish_momentum`              |
-| Rejection              | `>= 0.60` and `< 0.90`                  | Rejection-side wick `>= 0.15`; opposite wick `<= 0.10`             | `bullish_lower_rejection`       | `bearish_upper_rejection`       |
-| Hammer-shaped          | `> 0` and `<= 0.35`                     | Long wick `>= 0.50`; short wick `<= 0.10`; long wick `>= 2 × body` | `bullish_hammer_shape`          | `bearish_hammer_shape`          |
-| Inverted-hammer-shaped | `> 0` and `<= 0.35`                     | Long wick `>= 0.50`; short wick `<= 0.10`; long wick `>= 2 × body` | `bullish_inverted_hammer_shape` | `bearish_inverted_hammer_shape` |
-| Spinning top           | `> 0` and `<= 0.30`                     | Both wicks `>= 0.20`                                               | `bullish_spinning_top`          | `bearish_spinning_top`          |
-| Standard               | All remaining valid non-neutral candles | No additional restriction                                          | `bullish_standard`              | `bearish_standard`              |
+For example, `bullish_hammer_shape` and `HH-LL` are not contradictory. The first describes the candle's body and wicks; the second says the candle's high exceeded the previous high while its low fell below the previous low.
 
-For the rejection row, the rejection-side wick is the lower wick for bullish candles and the upper wick for bearish candles. For hammer-shaped candles, the long wick is the lower wick for bullish candles and the upper wick for bearish candles. For inverted-hammer-shaped candles, these are reversed.
+### 7.4  Candle shape: retain the accepted, symmetric rules
 
-One important adjustment to the previous draft: the body-ratio bands for marubozu, momentum, rejection, and the smaller-body shapes are explicitly separated. The standard shape captures the remaining valid geometries.
+Use the refined shape algorithm we already agreed on, including its exclusive rule precedence:
 
+1. `flat_neutral_candle` — range is zero.
+2. `doji_neutral_candle` — non-flat candle with equal open and close.
+3. `marubozu` — dominant body and very small wicks.
+4. `lower_rejection` or `upper_rejection` — dominant body with a qualifying rejection-side wick.
+5. `momentum` — dominant body without the rejection geometry.
+6. `hammer_shape` or `inverted_hammer_shape` — small body and one qualifying long wick.
+7. `spinning_top` — small body and two qualifying wicks.
+8. `standard` — any remaining valid bullish or bearish candle.
 
-### 7.5 One refinement also improved 
+For directional candles, prefix the applicable suffix with `bullish_` or `bearish_`. For example, `bullish_momentum` and `bearish_momentum`.
 
+This preserves the symmetry between bullish and bearish shapes. The same thresholds apply to both; only the directional interpretation of the wicks changes. The `standard` fallback ensures every valid non-neutral candle receives a shape.
 
-Define two canonical wick ratios relative to the candle's direction:
-
-```
-OpenSideWickRatio  = UpperWickRatio if bearish
-                     LowerWickRatio if bullish
-
-CloseSideWickRatio = LowerWickRatio if bearish
-                     UpperWickRatio if bullish
-```
-
-### 7.6
+#### 7.4.1
 - This implementation above is functioning in a POC python code python/candle_shape.py for more details 
 - python/candle_shape.py can be used for this implementation adapting the code as a function.
 
-## 8. Required acceptance tests
+## 7.5 Predecessor relationship:
 
-- Every valid bullish candle receives exactly one `bullish_*` shape.
-- Every valid bearish candle receives exactly one `bearish_*` shape.
-- Mirroring a bullish candle's geometry vertically produces the corresponding bearish shape.
-- A flat neutral candle is classified before any ratio calculation.
-- A non-flat doji is classified as `doji_neutral_candle`.
-- No candle satisfies two shape rules simultaneously.
-- Every valid non-neutral candle that does not match a specialized shape receives `standard`.
-- Threshold tests cover values immediately below, exactly at, and immediately above each boundary.
+The code is always `high_relation-low_relation`, so there are exactly nine combinations.
 
+| Pattern code | Interpretation                  | What changed?              |
+| ------------ | ------------------------------- | -------------------------- |
+| `HH-HL`      | Both extremes shift upward      | Higher high, higher low    |
+| `HH-EL`      | High expands upward             | Higher high, unchanged low |
+| `HH-LL`      | Outside bar                     | Higher high, lower low     |
+| `LH-HL`      | Inside bar                      | Lower high, higher low     |
+| `LH-LL`      | Both extremes shift downward    | Lower high, lower low      |
+| `LH-EL`      | Upper boundary shifts downward  | Lower high, unchanged low  |
+| `EH-HL`      | Lower boundary shifts upward    | Unchanged high, higher low |
+| `EH-LL`      | Lower boundary expands downward | Unchanged high, lower low  |
+| `EH-EL`      | Same high-low boundaries        | Both extremes unchanged    |
+
+These names describe the geometry, not a guaranteed bullish or bearish market signal. For example, an outside bar can be bullish or bearish depending on its open and close.
+
+### 7.5.1 comparison rules
+
+To make the implementation deterministic, we have specified the following rules.
+
+A. Equality and price precision
+
+Floating-point prices can make two theoretically equal values appear slightly different. Use a documented equality policy:
+
+- Prefer comparing prices normalized to the instrument’s valid tick size, when that information is available.
+- Otherwise, use exact equality on the normalized input prices and document that choice.
+- Do not silently introduce an arbitrary tolerance.
+
+The three comparisons must be mutually exclusive: every valid comparison produces exactly one relation.
+
+B. First candle
+
+The first candle has no predecessor. Its shape and direction are still calculated, but its predecessor fields must be `null`, not fabricated.
+
+C. Missing predecessor
+
+If the immediately preceding row has invalid or missing high/low values, the relationship is unavailable. Do not skip that row and compare with an older candle unless a separate gap-recovery rule explicitly permits it.
+
+D. OHLC validation
+
+Require finite numeric values and the structural constraints:
+
+\\[ H \geq \max(O,C), \qquad L \leq \min(O,C), \qquad H \geq L \\]
+
+An invalid candle should produce a clear validation error in the form:
+"Ticker ".$Ticker. "Has an invalid candle at".$time(in the feed)."Please check"
+This far we have not documented any invalid-row result.
+It should not be forced into a shape or predecessor category.
+
+E. Session and timeframe boundaries
+
+Use the preceding candle for the same ticker and timeframe, in chronological order. Do not compare different tickers or timeframes. Whether the comparison crosses overnight, weekend, or other session gaps should be explicit; the default is to compare consecutive available candles in the series, even across such gaps.
+
+F. 3 fields to define a candle 
+We use `direction` + `shape` + `predecessor pattern code` as three separate output fields. This makes the design coherent, eliminates the predecessor-code inconsistency, and prevents future shape changes from breaking predecessor analysis. The nine predecessor codes form a complete classification of high/low relationships; descriptive trading interpretations should remain a separate, optional layer with their own explicit criteria.
+
+### 7.5.2 predecessor pseudocode 
+
+
+FUNCTION classifyPredecessorRelationship(previousCandle, currentCandle):
+
+    # STEP 1 — Check that a predecessor exists
+    IF previousCandle does not exist:
+        RETURN {
+            highRelation: NULL,
+            lowRelation: NULL,
+            patternCode: NULL,
+            patternName: NULL,
+            status: "NO_PREDECESSOR"
+        }
+
+    # STEP 2 — Validate required prices
+    IF previousCandle.High is missing OR
+       previousCandle.Low is missing OR
+       currentCandle.High is missing OR
+       currentCandle.Low is missing:
+
+        RETURN {
+            highRelation: NULL,
+            lowRelation: NULL,
+            patternCode: NULL,
+            patternName: NULL,
+            status: "MISSING_PRICE"
+        }
+
+    IF any required price is non-numeric OR non-finite:
+        RETURN {
+            highRelation: NULL,
+            lowRelation: NULL,
+            patternCode: NULL,
+            patternName: NULL,
+            status: "INVALID_PRICE"
+        }
+
+    # STEP 3 — Validate high/low boundaries
+    IF previousCandle.High < previousCandle.Low OR
+       currentCandle.High < currentCandle.Low:
+
+        RETURN {
+            highRelation: NULL,
+            lowRelation: NULL,
+            patternCode: NULL,
+            patternName: NULL,
+            status: "INVALID_OHLC"
+        }
+
+    # STEP 4 — Normalize prices for comparison
+    # Use the instrument's tick-size policy, if available.
+    prevHigh = normalizePrice(previousCandle.High)
+    prevLow  = normalizePrice(previousCandle.Low)
+    currHigh = normalizePrice(currentCandle.High)
+    currLow  = normalizePrice(currentCandle.Low)
+
+    # STEP 5 — Classify the high relationship
+    IF currHigh > prevHigh:
+        highRelation = "HH"
+    ELSE IF currHigh < prevHigh:
+        highRelation = "LH"
+    ELSE:
+        highRelation = "EH"
+
+    # STEP 6 — Classify the low relationship
+    IF currLow > prevLow:
+        lowRelation = "HL"
+    ELSE IF currLow < prevLow:
+        lowRelation = "LL"
+    ELSE:
+        lowRelation = "EL"
+
+    # STEP 7 — Build the canonical pattern code
+    patternCode = highRelation + "-" + lowRelation
+
+    # STEP 8 — Map code to a descriptive name
+    patternName = PATTERN_NAME_MAP[patternCode]
+
+    # STEP 9 — Return the result
+    RETURN {
+        highRelation: highRelation,
+        lowRelation: lowRelation,
+        patternCode: patternCode,
+        patternName: patternName,
+        status: "OK"
+    }
+END FUNCTION
+---
+
+## 8. Minimum test matrix
+
+Before considering the two dimensions complete, test their combination—not just each classifier independently.
+
+| Test                                                   | Expected behavior                                                                                |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| First valid candle                                     | Direction and shape calculated; predecessor unavailable                                          |
+| Bullish hammer-shaped candle with `HH-HL`              | Bullish hammer shape; `HH-HL` relationship                                                       |
+| Bearish hammer-shaped candle with `LH-LL`              | Bearish hammer shape; `LH-LL` relationship                                                       |
+| Same OHLC geometry shifted relative to its predecessor | Same shape; potentially different predecessor code                                               |
+| All nine high/low combinations                         | Each code produced exactly once                                                                  |
+| Equal high and low boundaries                          | `EH-EL`                                                                                          |
+| Flat candle                                            | `flat_neutral_candle`; predecessor comparison still calculated if a valid previous candle exists |
+| Doji with a nonzero range                              | `doji_neutral_candle`; predecessor comparison still calculated                                   |
+| Invalid OHLC or missing previous extremes              | Explicit validation error or unavailable relationship, never a fabricated classification         |
 
 
 
@@ -385,204 +531,6 @@ Slope % = ((current period EMA200 − EMA200 9 periods ago ) / EMA200 9 periods 
 ```
 ---
 
-# 27 Candlesticks Predecessor Relationship
-
-    How a current candle behaves relative to its predecessor (the previous candle) 
-
-## 12 UNIQUE HIGH-LOW RELATIONSHIP PATTERNS OF TWO CONSECUTIVE CANDLES
-### Pattern Code
-- Higher High Dominant
-	HH-HL
-	HH-LL
-	HH-EL
-- Lower High Dominant
-	LH-LL
-	LH-HL
-	LH-EL
-- Equal High Structures
-	EH-HL
-	EH-LL
-	EH-EL
-- Equal Low Structures
-	EL-LH
-	EL-HH
-	EL-EH 
-### Pattern Name
-
-
-    patternName = "Up Trend Bar"
-    patternName = "Outside Bar"
-    patternName = "Bullish Rejection / Expansion"
-    patternName = "Down Trend Bar"
-    patternName = "Down Trend Bar"
-    patternName = "Inside Bar"
-    patternName = "Descending Base Bar"
-    patternName = "Ascending Base Bar"
-    patternName = "Bearish Fakeout"
-    patternName = "Double Bar / Matchbook"
-    patternName = "Descending Triangle Bar"
-    patternName = "Bullish Fakeout"
-    patternName = "Perfect Double Top/Bottom"
-
-### Pattern Category
-
-
-    category = "Both Extremes Shift Upward"
-    category = "Range Expansion"
-    category = "Both Extremes Shift Upward"
-    category = "Both Extremes Shift Downward"
-    category = "Contraction"
-    category = "Both Extremes Shift Downward"
-    category = "Equal High Structures"
-    category = "Equal High Structures"
-    category = "Strict Consolidation"
-    category = "Equal Low Structures"
-    category = "Equal Low Structures"
-    category = "Equal Low Structures"
-
-## Pattern Pseudo code
-
-```text
-FUNCTION classifyRelationship(
-    prevHigh,
-    prevLow,
-    currHigh,
-    currLow
-)
-
-    //--------------------------------------------------
-    // HIGH RELATION
-    //--------------------------------------------------
-
-    IF currHigh > prevHigh THEN
-        highRelation = "HH"
-    ELSE IF currHigh < prevHigh THEN
-        highRelation = "LH"
-    ELSE
-        highRelation = "EH"
-    END IF
-
-    //--------------------------------------------------
-    // LOW RELATION
-    //--------------------------------------------------
-
-    IF currLow > prevLow THEN
-        lowRelation = "HL"
-    ELSE IF currLow < prevLow THEN
-        lowRelation = "LL"
-    ELSE
-        lowRelation = "EL"
-    END IF
-
-    //--------------------------------------------------
-    // PATTERN CODE
-    //--------------------------------------------------
-
-    patternCode =
-        highRelation + "-" + lowRelation
-
-    //--------------------------------------------------
-    // BUSINESS CLASSIFICATION
-    //--------------------------------------------------
-
-    SWITCH patternCode
-
-        CASE "HH-HL":
-            return (
-                code="HH-HL",
-                name="Up Trend Bar",
-                category="Trend Continuation"
-            )
-
-        CASE "HH-LL":
-            return (
-                code="HH-LL",
-                name="Outside Bar",
-                category="Expansion"
-            )
-
-        CASE "HH-EL":
-            return (
-                code="HH-EL",
-                name="Bullish Rejection / Expansion",
-                category="Expansion"
-            )
-
-        CASE "LH-LL":
-            return (
-                code="LH-LL",
-                name="Down Trend Bar",
-                category="Trend Continuation"
-            )
-
-        CASE "LH-HL":
-            return (
-                code="LH-HL",
-                name="Inside Bar",
-                category="Contraction"
-            )
-
-        CASE "LH-EL":
-            return (
-                code="LH-EL",
-                name="Descending Base Bar",
-                category="Consolidation"
-            )
-
-        CASE "EH-HL":
-            return (
-                code="EH-HL",
-                name="Ascending Base Bar",
-                category="Consolidation"
-            )
-
-        CASE "EH-LL":
-            return (
-                code="EH-LL",
-                name="Bearish Fakeout",
-                category="Failure Pattern"
-            )
-
-        CASE "EH-EL":
-            return (
-                code="EH-EL",
-                name="Double Bar / Matchbook",
-                category="Balance"
-            )
-
-        CASE "EL-LH":
-            return (
-                code="EL-LH",
-                name="Descending Triangle Bar",
-                category="Consolidation"
-            )
-
-        CASE "EL-HH":
-            return (
-                code="EL-HH",
-                name="Bullish Fakeout",
-                category="Failure Pattern"
-            )
-
-        CASE "EL-EH":
-            return (
-                code="EL-EH",
-                name="Perfect Double Top/Bottom",
-                category="Balance"
-            )
-
-        DEFAULT:
-            return (
-                code="UNKNOWN",
-                name="UNKNOWN",
-                category="UNKNOWN"
-            )
-
-    END SWITCH
-
-END FUNCTION
-```
-
 # New Fields : Output example in Json that can be  appended as columns as well
 
 {
@@ -608,8 +556,11 @@ END FUNCTION
   "slope20": 0.99,
   "slope50": 0.99,
   "slope200": 0.99,
-  "pattern_code": "xx",
-  "pattern_name": "xx",
-  "pattern_category": "xx"
+  "predecessor": {
+    "high_relation": "HH",
+    "low_relation": "LL",
+    "pattern_code": "HH-LL",
+    "pattern_name": "outside_bar"
+  }
 }
 
