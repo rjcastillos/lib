@@ -1,121 +1,156 @@
 ## 23. SLOPE9
 
-**Underlying indicator:** EMA9  
-**Moving-average period:** 9  
-**Slope comparison lag:** 9 bars
+Source moving average: EMA9 Slope lookback: 9 bars
 
-Formula:
+Calculate the percentage change between the current EMA9 value and the EMA9 value nine bars earlier.
 
-`SLOPE9[t] = ((EMA9[t] - EMA9[t-9]) / EMA9[t-9]) * 100`
+\\[ SLOPE9_t = \frac{EMA9_t-EMA9\_{t-9}}{EMA9\_{t-9}}\times100 \\]
 
-**Warm-up:**
-- EMA9 is first valid at bar 9.
-- SLOPE9 requires EMA9 at both the current bar and 9 bars earlier.
-- SLOPE9 MUST return null for bars 1 through 17.
-- **First valid output bar: bar 18.**
 
-Return null whenever either EMA9 value is unavailable or the historical EMA9 denominator is zero.
+SLOPE9_t = EMA9_t-EMA9_{t-9}}{EMA9_{t-9}}\times100
 
----
+
+Rules:
+
+- Use the EMA9 values calculated in section 18.
+- Compare the current EMA9 value with the value exactly 9 observations earlier.
+- Return `null` until both EMA9 values are available.
+- Return `null` if the historical EMA9 denominator is zero or invalid.
+- Do not substitute zero for an unavailable slope.
+
+Warm-up and first valid output:
+
+| Bars      | Result                                               |
+| --------- | ---------------------------------------------------- |
+| 1–17      | `null`                                               |
+| 18 onward | Calculate when both values and denominator are valid |
+
+The first valid result is bar 18, assuming uninterrupted data and one-based bar numbering.
 
 ## 24. SLOPE20
 
-**Underlying indicator:** SMA20  
-**Moving-average period:** 20  
-**Slope comparison lag:** 9 bars
+Source moving average: SMA20 Slope lookback: 9 bars
 
-Formula:
+This is the only slope indicator calculated using SMA rather than EMA.
 
-`SLOPE20[t] = ((SMA20[t] - SMA20[t-9]) / SMA20[t-9]) * 100`
+\\[ SLOPE20_t = \frac{SMA20_t-SMA20\_{t-9}}{SMA20\_{t-9}}\times100 \\]
 
-**Warm-up:**
-- SMA20 is first valid at bar 20.
-- SLOPE20 requires SMA20 at both the current bar and 9 bars earlier.
-- SLOPE20 MUST return null for bars 1 through 28.
-- **First valid output bar: bar 29.**
+Rules:
 
-Return null whenever either SMA20 value is unavailable or the historical SMA20 denominator is zero.
+- Use the SMA20 values calculated in section 22.
+- Compare the current SMA20 value with the value exactly 9 observations earlier.
+- Return `null` until both SMA20 values are available.
+- Return `null` if the historical SMA20 denominator is zero or invalid.
+- Do not substitute zero for an unavailable slope.
 
-Note: SLOPE20 is the only slope in this specification that uses SMA rather than EMA.
+Warm-up and first valid output:
 
----
+| Bars      | Result                                               |
+| --------- | ---------------------------------------------------- |
+| 1–28      | `null`                                               |
+| 29 onward | Calculate when both values and denominator are valid |
+
+The first valid result is bar 29, assuming uninterrupted data and one-based bar numbering.
 
 ## 25. SLOPE50
 
-**Underlying indicator:** EMA50  
-**Moving-average period:** 50  
-**Slope comparison lag:** 9 bars
+Source moving average: EMA50 Slope lookback: 9 bars
 
-Formula:
+\\[ SLOPE50_t = \frac{EMA50_t-EMA50\_{t-9}}{EMA50\_{t-9}}\times100 \\]
 
-`SLOPE50[t] = ((EMA50[t] - EMA50[t-9]) / EMA50[t-9]) * 100`
+Rules:
 
-**Warm-up:**
-- EMA50 is first valid at bar 50.
-- SLOPE50 requires EMA50 at both the current bar and 9 bars earlier.
-- SLOPE50 MUST return null for bars 1 through 58.
-- **First valid output bar: bar 59.**
+- Use the EMA50 values calculated in section 19.
+- Compare the current EMA50 value with the value exactly 9 observations earlier.
+- Return `null` until both EMA50 values are available.
+- Return `null` if the historical EMA50 denominator is zero or invalid.
+- Do not substitute zero for an unavailable slope.
 
-Return null whenever either EMA50 value is unavailable or the historical EMA50 denominator is zero.
+Warm-up and first valid output:
 
----
+| Bars      | Result                                               |
+| --------- | ---------------------------------------------------- |
+| 1–58      | `null`                                               |
+| 59 onward | Calculate when both values and denominator are valid |
+
+The first valid result is bar 59, assuming uninterrupted data and one-based bar numbering.
 
 ## 26. SLOPE200
 
-**Underlying indicator:** EMA200  
-**Moving-average period:** 200  
-**Slope comparison lag:** 9 bars
+Source moving average: EMA200 Slope lookback: 9 bars
 
-Formula:
+\\[ SLOPE200_t = \frac{EMA200_t-EMA200\_{t-9}}{EMA200\_{t-9}}\times100 \\]
 
-`SLOPE200[t] = ((EMA200[t] - EMA200[t-9]) / EMA200[t-9]) * 100`
+Rules:
 
-**Warm-up:**
-- EMA200 is first valid at bar 200.
-- SLOPE200 requires EMA200 at both the current bar and 9 bars earlier.
-- SLOPE200 MUST return null for bars 1 through 208.
-- **First valid output bar: bar 209.**
+- Use the EMA200 values calculated in section 21.
+- Compare the current EMA200 value with the value exactly 9 observations earlier.
+- Return `null` until both EMA200 values are available.
+- Return `null` if the historical EMA200 denominator is zero or invalid.
+- Do not substitute zero for an unavailable slope.
 
-Return null whenever either EMA200 value is unavailable or the historical EMA200 denominator is zero.
+Warm-up and first valid output:
 
----
+| Bars       | Result                                               |
+| ---------- | ---------------------------------------------------- |
+| 1–208      | `null`                                               |
+| 209 onward | Calculate when both values and denominator are valid |
 
-## 27. Common slope calculation rules
+The first valid result is bar 209, assuming uninterrupted data and one-based bar numbering.
 
-The following rules apply to all slope calculations:
+## 27. Slope calculation rules and interpretation
 
-1. **Separate parameters:** The moving-average period and slope comparison lag are independent parameters. They MUST NOT be treated as interchangeable.
-2. **Comparison lag:** The current project uses a slope comparison lag of 9 bars for all four slopes.
-3. **Current observation:** The current moving-average value is included in the calculation.
-4. **Historical observation:** The comparison value is taken exactly 9 bars before the current bar.
-5. **Warm-up:** A slope MUST remain null until both required moving-average values exist.
-6. **First valid output:** Under uninterrupted valid input data, the first valid output bar is the moving-average period plus the comparison lag.
-7. **Missing values:** If either required moving-average value is unavailable, the slope MUST be null for that bar.
-8. **Zero denominator:** If the historical moving-average value is zero, the slope MUST be null.
-9. **No forward filling:** Missing moving-average values MUST NOT be replaced with previous values to produce a slope.
-10. **Calculation precision:** Full available precision MUST be retained internally. Rounding is applied only at the output stage.
+### 27.1 General calculation and validity rules
 
-### 27.1. General formula
+All four slope indicators use the same calculation principle:
 
-For an underlying moving average with period `N` and comparison lag `L`:
+1. Calculate the relevant moving average according to its own specification.
+2. Compare its current value with its value exactly 9 observations earlier.
+3. Calculate the percentage change using the historical value as the denominator.
+4. Return `null` until both required moving-average values are available.
+5. Return `null` if the historical denominator is zero or invalid.
 
-`SlopePercent[t] = ((MA[t] - MA[t-L]) / MA[t-L]) * 100`
+The first valid slope bar is therefore determined by:
 
-The first valid output bar, assuming the moving average is initialized using the first `N` valid observations and the input series is uninterrupted, is:
+\\[ \text{FirstValidBar}=\text{MovingAveragePeriod}+9 \\]
 
-`FirstValidBar = N + L`
+This assumes:
 
-For this project, `L = 9`.
+- One-based bar numbering.
+- Continuous, uninterrupted input data.
+- The moving average first becomes valid at its own period number.
+- No missing or invalid observations interrupt the calculation.
 
-### 27.2. First valid output summary
+First valid output summary:
 
-| Slope | Moving average | MA period | Comparison lag | Null through bar | First valid bar |
-|---|---|---:|---:|---:|---:|
-| SLOPE9 | EMA9 | 9 | 9 | 17 | 18 |
-| SLOPE20 | SMA20 | 20 | 9 | 28 | 29 |
-| SLOPE50 | EMA50 | 50 | 9 | 58 | 59 |
-| SLOPE200 | EMA200 | 200 | 9 | 208 | 209 |
+| Indicator | Moving average | MA first valid bar | Slope lag | First valid slope bar |
+| --------- | -------------- | ------------------ | --------- | --------------------- |
+| SLOPE9    | EMA9           | 9                  | 9         | 18                    |
+| SLOPE20   | SMA20          | 20                 | 9         | 29                    |
+| SLOPE50   | EMA50          | 50                 | 9         | 59                    |
+| SLOPE200  | EMA200         | 200                | 9         | 209                   |
 
-These bar numbers assume the first input observation is bar 1 and there are no missing or invalid observations.
+If missing or invalid data interrupts the moving-average calculation, the slope must remain `null` until both the current and historical moving-average values are valid again.
 
-If an input moving average becomes unavailable later in the series, the slope MUST be null whenever either of its two required values is unavailable. The initial warm-up table does not override this rule.
+### 27.2 Slope interpretation
+
+The following thresholds provide a descriptive interpretation of the calculated slope. They do not alter the underlying calculation.
+
+| Slope percentage                               | Interpretation      |
+| ---------------------------------------------- | ------------------- |
+| Greater than +4%                               | `strong_bull_trend` |
+| Greater than +2% and up to +4%                 | `bull_trend`        |
+| Greater than or equal to -2% and up to +2%     | `sideways`          |
+| Greater than or equal to -4% and less than -2% | `bear_trend`        |
+| Less than -4%                                  | `strong_bear_trend` |
+
+Boundary values are assigned to only one category:
+
+- Exactly `+4%` is `bull_trend`.
+- Exactly `+2%` is `bull_trend`.
+- Exactly `-2%` is `sideways`.
+- Exactly `-4%` is `bear_trend`.
+
+The interpretation should only be assigned when the corresponding slope value is not `null`.
+
+Important implementation note: The slope lookback is always 9 observations. It is not the moving-average period. For example, SLOPE200 compares EMA200 at the current bar with EMA200 nine bars earlier; it does not compare it with EMA200 two hundred bars earlier.
