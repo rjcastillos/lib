@@ -93,6 +93,8 @@ More details can be found on docs/specs/Indicators-general-considerations/README
 6.  Zero or Missing Baseline Volume Division by Zero (#DIV/0!) runtime crash.
     - resolve to 0.0 
 
+7. Unless this specification specifically states to follow a POC or prototype imlementation parameters , it overrides any code in this repository. 
+
 # Given:
 
 O = Open
