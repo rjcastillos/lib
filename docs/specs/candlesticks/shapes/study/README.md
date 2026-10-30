@@ -487,26 +487,89 @@ Divide the current period's volume by that historical average:
 - Formula in this repo at  docs/specs/SMA20/README.md and for SMA in general docs/specs/01_SMA-Specification.md
 
 
-# 23 SLOPE9
-Slope % = ((current period EMA9 − EMA9 9 periods ago ) / EMA9 9 periods ago ) × 100
-- warm-up period = 9
-- Return null unless both moving-average values exist and the denominator is valid
+# Slopes calculations
+- complete specs in docs/specs/SLOPES/README.md
 
-# 24 SLOPE20
-## Only one calculated using the slow SMA instead of EMA 
-Slope % = ((current period SMA20 − SMA20 9 periods ago ) / SMA20 9 periods ago ) × 100
-- warm-up period = 20
-- Return null unless both moving-average values exist and the denominator is valid
+## 23. SLOPE9
 
-# 25 SLOPE50
-Slope % = ((current period EMA50 − EMA50 9 periods ago ) / EMA50 9 periods ago ) × 100
-- warm-up period = 50
-- Return null unless both moving-average values exist and the denominator is valid
+**Underlying indicator:** EMA9  
+**Moving-average period:** 9  
+**Slope comparison lag:** 9 bars
 
-# 26 SLOPE200
-Slope % = ((current period EMA200 − EMA200 9 periods ago ) / EMA200 9 periods ago ) × 100
-- warm-up period = 200
-- Return null unless both moving-average values exist and the denominator is valid
+Formula:
+
+`SLOPE9[t] = ((EMA9[t] - EMA9[t-9]) / EMA9[t-9]) * 100`
+
+**Warm-up:**
+- EMA9 is first valid at bar 9.
+- SLOPE9 requires EMA9 at both the current bar and 9 bars earlier.
+- SLOPE9 MUST return null for bars 1 through 17.
+- **First valid output bar: bar 18.**
+
+Return null whenever either EMA9 value is unavailable or the historical EMA9 denominator is zero.
+
+---
+
+## 24. SLOPE20
+
+**Underlying indicator:** SMA20  
+**Moving-average period:** 20  
+**Slope comparison lag:** 9 bars
+
+Formula:
+
+`SLOPE20[t] = ((SMA20[t] - SMA20[t-9]) / SMA20[t-9]) * 100`
+
+**Warm-up:**
+- SMA20 is first valid at bar 20.
+- SLOPE20 requires SMA20 at both the current bar and 9 bars earlier.
+- SLOPE20 MUST return null for bars 1 through 28.
+- **First valid output bar: bar 29.**
+
+Return null whenever either SMA20 value is unavailable or the historical SMA20 denominator is zero.
+
+Note: SLOPE20 is the only slope in this specification that uses SMA rather than EMA.
+
+---
+
+## 25. SLOPE50
+
+**Underlying indicator:** EMA50  
+**Moving-average period:** 50  
+**Slope comparison lag:** 9 bars
+
+Formula:
+
+`SLOPE50[t] = ((EMA50[t] - EMA50[t-9]) / EMA50[t-9]) * 100`
+
+**Warm-up:**
+- EMA50 is first valid at bar 50.
+- SLOPE50 requires EMA50 at both the current bar and 9 bars earlier.
+- SLOPE50 MUST return null for bars 1 through 58.
+- **First valid output bar: bar 59.**
+
+Return null whenever either EMA50 value is unavailable or the historical EMA50 denominator is zero.
+
+---
+
+## 26. SLOPE200
+
+**Underlying indicator:** EMA200  
+**Moving-average period:** 200  
+**Slope comparison lag:** 9 bars
+
+Formula:
+
+`SLOPE200[t] = ((EMA200[t] - EMA200[t-9]) / EMA200[t-9]) * 100`
+
+**Warm-up:**
+- EMA200 is first valid at bar 200.
+- SLOPE200 requires EMA200 at both the current bar and 9 bars earlier.
+- SLOPE200 MUST return null for bars 1 through 208.
+- **First valid output bar: bar 209.**
+
+Return null whenever either EMA200 value is unavailable or the historical EMA200 denominator is zero.
+
 
 ---
 
