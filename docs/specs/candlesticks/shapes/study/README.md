@@ -92,10 +92,10 @@ More details can be found on docs/specs/Indicators-general-considerations/README
 5.  Warm-Up period usually on this study go from 1 through 9 except for specifics Moving Average where n <> 9
     - resolve to Null/NaN
 
-6.  Zero or Missing Baseline Volume Division by Zero (#DIV/0!) runtime crash.
+6.  Each indicator has their own rules for Zero or Missing Baselines for any other operations like Division by Zero (#DIV/0!) runtime crash.
     - resolve to 0.0 
 
-7. Unless this specification specifically states to follow a POC or prototype imlementation parameters , it overrides any code in this repository. 
+7. This is a standalone program in this repository that only depends on getOHLC_*.py and some other prototypes named on this document , any other code in ths repo might have different parameters and defaults that the ones defined in this document.
 
 # Given:
 
