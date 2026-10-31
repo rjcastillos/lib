@@ -4,10 +4,10 @@ Source moving average: EMA9 Slope lookback: 9 bars
 
 Calculate the percentage change between the current EMA9 value and the EMA9 value nine bars earlier.
 
-\\[ SLOPE9_t = \frac{EMA9_t-EMA9\_{t-9}}{EMA9\_{t-9}}\times100 \\]
+```
+SLOPE9 = ((EMA9[t] - EMA9[t-9]) / EMA9[t-9]) * 100
 
-
-SLOPE9_t = EMA9_t-EMA9_{t-9}}{EMA9_{t-9}}\times100
+```
 
 
 Rules:
@@ -33,7 +33,11 @@ Source moving average: SMA20 Slope lookback: 9 bars
 
 This is the only slope indicator calculated using SMA rather than EMA.
 
-\\[ SLOPE20_t = \frac{SMA20_t-SMA20\_{t-9}}{SMA20\_{t-9}}\times100 \\]
+```
+
+SLOPE20 = ((SMA20[t] - SMA20[t-9]) / SMA20[t-9]) * 100
+
+```
 
 Rules:
 
@@ -56,7 +60,11 @@ The first valid result is bar 29, assuming uninterrupted data and one-based bar 
 
 Source moving average: EMA50 Slope lookback: 9 bars
 
-\\[ SLOPE50_t = \frac{EMA50_t-EMA50\_{t-9}}{EMA50\_{t-9}}\times100 \\]
+```
+
+SLOPE50 = ((EMA50[t] - EMA50[t-9]) / EMA50[t-9]) * 100
+
+```
 
 Rules:
 
@@ -79,7 +87,9 @@ The first valid result is bar 59, assuming uninterrupted data and one-based bar 
 
 Source moving average: EMA200 Slope lookback: 9 bars
 
-\\[ SLOPE200_t = \frac{EMA200_t-EMA200\_{t-9}}{EMA200\_{t-9}}\times100 \\]
+```
+SLOPE200 = ((EMA200[t] - EMA200[t-9]) / EMA200[t-9]) * 100
+```
 
 Rules:
 
@@ -112,7 +122,12 @@ All four slope indicators use the same calculation principle:
 
 The first valid slope bar is therefore determined by:
 
-\\[ \text{FirstValidBar}=\text{MovingAveragePeriod}+9 \\]
+```
+
+FirstValidBar = MovingAveragePeriod + 9 
+
+```
+
 
 This assumes:
 

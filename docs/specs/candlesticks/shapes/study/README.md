@@ -154,7 +154,6 @@ BodyPercent      = 2.00 / 2.10 = .9524
 UpperWickPercent  = 0.05 / 2.10 = 0.0238
 LowerWickPercent  = 0.05 / 2.10 = 0.0238
 
-BodyPercent = 2.00 / 100.00 = 0.02
 
 ---
 
@@ -241,10 +240,11 @@ Require finite numeric values and the structural constraints:
 
 \\[ H \geq \max(O,C), \qquad L \leq \min(O,C), \qquad H \geq L \\]
 
-An invalid candle should produce a clear validation error in the form:
-"Ticker ".$Ticker. "Has an invalid candle at".$time(in the feed)."Please check"
-This far we have not documented any invalid-row result.
-It should not be forced into a shape or predecessor category.
+An invalid candle should produce a clear 
+### validation error in the form of:
+ - "Ticker ".$Ticker. "Has an invalid candle at".$time(in the feed)."Please check"
+    after reporting the error of that specific candle continue with the next
+    It should not be forced into a shape or predecessor category.
 
 E. Session and timeframe boundaries
 
@@ -359,24 +359,25 @@ Before considering the two dimensions complete, test their combination—not jus
 | Doji with a nonzero range                              | `doji_neutral_candle`; predecessor comparison still calculated                                   |
 | Invalid OHLC or missing previous extremes              | Explicit validation error or unavailable relationship, never a fabricated classification         |
 
+## 9  Open location
+###  OpenLocation = (O - L) / Range
 
-
-## 9  Position of the close
+## 10  Position of the close
 #### CloseLocation = (C - L) / Range
 
-## 10  Price-relative movement
+## 11  Price-relative movement or Normalize price against the asset price
 
 #### ReferencePrice = O (Open) 
-#### BodyPercent    = Body  / ReferencePrice 
-#### RangePercent   = Range / ReferencePrice 
+#### RelativeOpenPercent        = Body  / ReferencePrice 
+#### RelativeOpenRangePercent   = Range / ReferencePrice 
 
 
-##  11 ATR(9)
+##  12 ATR(9)
 - Calculation , formula ,rules  and example are detailed in docs/specs/ATR/README.md
 - The loopback for this implementation is 9 with a warm-up period (from 1 - 8)
 
 
-## 12  Move size (Magnitude) relative to the Average True Range of last interval
+## 13  Move size (Magnitude) relative to the Average True Range of last interval
 
 ### BodyATR  = Body  / ATR(t-1)
 
@@ -392,7 +393,7 @@ Before considering the two dimensions complete, test their combination—not jus
     ATR(9) of previous candle 1.70
     - RangeATR = 2.10 / 1.70 = .23
 
-### 12.1 Magnitude clasification for both bullish and bearish
+### 13.1 Magnitude clasification for both bullish and bearish
 
 if rangeATR >= 2.0:
     magnitud = "monster_move"
@@ -405,31 +406,18 @@ else if rangeATR >= 0.50:
 else:
     magnitude = "small"
 
-
-## 13  Open location
-###  OpenLocation = (O - L) / Range
-
-## 14  Normalize price against the asset price
-
-#### ReferencePrice = O (Open)
-
-#### BodyPercent      = Body      / ReferencePrice 
-#### RangePercent     = Range     / ReferencePrice 
-#### UpperWickPercent = UpperWick / ReferencePrice 
-#### LowerWickPercent = LowerWick / ReferencePrice 
+## 14  
 
 ## 15  Normalize price against recent volatility
 
 ###  UpperWickATR = UpperWick / ATR from the previous period
 ###  LowerWickATR = LowerWick / ATR from the previous period
 
+- Following example:
+  ATR(9) of previous candle 1.70
+- UpperWickPercent = 0.05 / 1.70 = 0.294
+- LowerWickPercent = 0.05 / 2.10 = 0.294
 
-## 16 Following example:
-- BodyPercent      = 2.00 / 2.10 = .9524
-- UpperWickPercent = 0.05 / 2.10 = 0.238
-- LowerWickPercent = 0.05 / 2.10 = 0.238
-
-- BodyPercent = 2.00 / 100.00 = 0.2
 
 # 17 RVOL 
 ## Method A: Standard Daily RVOL
@@ -494,113 +482,210 @@ Divide the current period's volume by that historical average:
 
 ## 23. SLOPE9
 
-**Underlying indicator:** EMA9  
-**Moving-average period:** 9  
-**Slope comparison lag:** 9 bars
+Source moving average: EMA9 Slope lookback: 9 bars
 
-Formula:
+Calculate the percentage change between the current EMA9 value and the EMA9 value nine bars earlier.
 
-`SLOPE9[t] = ((EMA9[t] - EMA9[t-9]) / EMA9[t-9]) * 100`
+```
+SLOPE9 = ((EMA9[t] - EMA9[t-9]) / EMA9[t-9]) * 100
 
-**Warm-up:**
-- EMA9 is first valid at bar 9.
-- SLOPE9 requires EMA9 at both the current bar and 9 bars earlier.
-- SLOPE9 MUST return null for bars 1 through 17.
-- **First valid output bar: bar 18.**
+```
 
-Return null whenever either EMA9 value is unavailable or the historical EMA9 denominator is zero.
 
----
+Rules:
+
+- Use the EMA9 values calculated in section 18.
+- Compare the current EMA9 value with the value exactly 9 observations earlier.
+- Return `null` until both EMA9 values are available.
+- Return `null` if the historical EMA9 denominator is zero or invalid.
+- Do not substitute zero for an unavailable slope.
+
+Warm-up and first valid output:
+
+| Bars      | Result                                               |
+| --------- | ---------------------------------------------------- |
+| 1–17      | `null`                                               |
+| 18 onward | Calculate when both values and denominator are valid |
+
+The first valid result is bar 18, assuming uninterrupted data and one-based bar numbering.
 
 ## 24. SLOPE20
 
-**Underlying indicator:** SMA20  
-**Moving-average period:** 20  
-**Slope comparison lag:** 9 bars
+Source moving average: SMA20 Slope lookback: 9 bars
 
-Formula:
+This is the only slope indicator calculated using SMA rather than EMA.
 
-`SLOPE20[t] = ((SMA20[t] - SMA20[t-9]) / SMA20[t-9]) * 100`
+```
 
-**Warm-up:**
-- SMA20 is first valid at bar 20.
-- SLOPE20 requires SMA20 at both the current bar and 9 bars earlier.
-- SLOPE20 MUST return null for bars 1 through 28.
-- **First valid output bar: bar 29.**
+SLOPE20 = ((SMA20[t] - SMA20[t-9]) / SMA20[t-9]) * 100
 
-Return null whenever either SMA20 value is unavailable or the historical SMA20 denominator is zero.
+```
 
-Note: SLOPE20 is the only slope in this specification that uses SMA rather than EMA.
+Rules:
 
----
+- Use the SMA20 values calculated in section 22.
+- Compare the current SMA20 value with the value exactly 9 observations earlier.
+- Return `null` until both SMA20 values are available.
+- Return `null` if the historical SMA20 denominator is zero or invalid.
+- Do not substitute zero for an unavailable slope.
+
+Warm-up and first valid output:
+
+| Bars      | Result                                               |
+| --------- | ---------------------------------------------------- |
+| 1–28      | `null`                                               |
+| 29 onward | Calculate when both values and denominator are valid |
+
+The first valid result is bar 29, assuming uninterrupted data and one-based bar numbering.
 
 ## 25. SLOPE50
 
-**Underlying indicator:** EMA50  
-**Moving-average period:** 50  
-**Slope comparison lag:** 9 bars
+Source moving average: EMA50 Slope lookback: 9 bars
 
-Formula:
+```
 
-`SLOPE50[t] = ((EMA50[t] - EMA50[t-9]) / EMA50[t-9]) * 100`
+SLOPE50 = ((EMA50[t] - EMA50[t-9]) / EMA50[t-9]) * 100
 
-**Warm-up:**
-- EMA50 is first valid at bar 50.
-- SLOPE50 requires EMA50 at both the current bar and 9 bars earlier.
-- SLOPE50 MUST return null for bars 1 through 58.
-- **First valid output bar: bar 59.**
+```
 
-Return null whenever either EMA50 value is unavailable or the historical EMA50 denominator is zero.
+Rules:
 
----
+- Use the EMA50 values calculated in section 19.
+- Compare the current EMA50 value with the value exactly 9 observations earlier.
+- Return `null` until both EMA50 values are available.
+- Return `null` if the historical EMA50 denominator is zero or invalid.
+- Do not substitute zero for an unavailable slope.
+
+Warm-up and first valid output:
+
+| Bars      | Result                                               |
+| --------- | ---------------------------------------------------- |
+| 1–58      | `null`                                               |
+| 59 onward | Calculate when both values and denominator are valid |
+
+The first valid result is bar 59, assuming uninterrupted data and one-based bar numbering.
 
 ## 26. SLOPE200
 
-**Underlying indicator:** EMA200  
-**Moving-average period:** 200  
-**Slope comparison lag:** 9 bars
-
-Formula:
-
-`SLOPE200[t] = ((EMA200[t] - EMA200[t-9]) / EMA200[t-9]) * 100`
-
-**Warm-up:**
-- EMA200 is first valid at bar 200.
-- SLOPE200 requires EMA200 at both the current bar and 9 bars earlier.
-- SLOPE200 MUST return null for bars 1 through 208.
-- **First valid output bar: bar 209.**
-
-Return null whenever either EMA200 value is unavailable or the historical EMA200 denominator is zero.
-
-
----
-
->NOTE: Slopes posible interpretation
+Source moving average: EMA200 Slope lookback: 9 bars
 
 ```
-> +4%  = Strong Bull Trend
-+2% to +4% = Bull Trend
--2% to +2% = Sideways
--4% to -2% = Bear Trend
-< -4% = Strong Bear Trend
+SLOPE200 = ((EMA200[t] - EMA200[t-9]) / EMA200[t-9]) * 100
 ```
----
 
-# New Fields : Output example in Json that can be  appended as columns as well
+Rules:
+
+- Use the EMA200 values calculated in section 21.
+- Compare the current EMA200 value with the value exactly 9 observations earlier.
+- Return `null` until both EMA200 values are available.
+- Return `null` if the historical EMA200 denominator is zero or invalid.
+- Do not substitute zero for an unavailable slope.
+
+Warm-up and first valid output:
+
+| Bars       | Result                                               |
+| ---------- | ---------------------------------------------------- |
+| 1–208      | `null`                                               |
+| 209 onward | Calculate when both values and denominator are valid |
+
+The first valid result is bar 209, assuming uninterrupted data and one-based bar numbering.
+
+## 27. Slope calculation rules and interpretation
+
+### 27.1 General calculation and validity rules
+
+All four slope indicators use the same calculation principle:
+
+1. Calculate the relevant moving average according to its own specification.
+2. Compare its current value with its value exactly 9 observations earlier.
+3. Calculate the percentage change using the historical value as the denominator.
+4. Return `null` until both required moving-average values are available.
+5. Return `null` if the historical denominator is zero or invalid.
+
+The first valid slope bar is therefore determined by:
+
+```
+
+FirstValidBar = MovingAveragePeriod + 9 
+
+```
+
+
+This assumes:
+
+- One-based bar numbering.
+- Continuous, uninterrupted input data.
+- The moving average first becomes valid at its own period number.
+- No missing or invalid observations interrupt the calculation.
+
+First valid output summary:
+
+| Indicator | Moving average | MA first valid bar | Slope lag | First valid slope bar |
+| --------- | -------------- | ------------------ | --------- | --------------------- |
+| SLOPE9    | EMA9           | 9                  | 9         | 18                    |
+| SLOPE20   | SMA20          | 20                 | 9         | 29                    |
+| SLOPE50   | EMA50          | 50                 | 9         | 59                    |
+| SLOPE200  | EMA200         | 200                | 9         | 209                   |
+
+If missing or invalid data interrupts the moving-average calculation, the slope must remain `null` until both the current and historical moving-average values are valid again.
+
+### 27.2 Slope interpretation
+
+The following thresholds provide a descriptive interpretation of the calculated slope. They do not alter the underlying calculation.
+
+| Slope percentage                               | Interpretation      |
+| ---------------------------------------------- | ------------------- |
+| Greater than +4%                               | `strong_bull_trend` |
+| Greater than +2% and up to +4%                 | `bull_trend`        |
+| Greater than or equal to -2% and up to +2%     | `sideways`          |
+| Greater than or equal to -4% and less than -2% | `bear_trend`        |
+| Less than -4%                                  | `strong_bear_trend` |
+
+Boundary values are assigned to only one category:
+
+- Exactly `+4%` is `bull_trend`.
+- Exactly `+2%` is `bull_trend`.
+- Exactly `-2%` is `sideways`.
+- Exactly `-4%` is `bear_trend`.
+
+The interpretation should only be assigned when the corresponding slope value is not `null`.
+
+Important implementation note: The slope lookback is always 9 observations. It is not the moving-average period. For example, SLOPE200 compares EMA200 at the current bar with EMA200 nine bars earlier; it does not compare it with EMA200 two hundred bars earlier.
+
+# Key value pairs : Output example in Json that can be  appended as columns as well
 
 {
+  "Ticker": "ABCXYZ",
+  "Date": 2026-10-15,
+  "Time": 09:30:00,
+  "open": 100.00,
+  "high": 102.05,
+  "low": 99.95,
+  "close": 102.00,
   "direction": "bearish",
   "shape": "bearish_marubozu",
+  "range": 2.10,
+  "body": 2.00,
+  "upperwick": 0.05,
+  "lowerwick": 0.05,
   "body_percent": 0.9524,
-  "upper_wick_percent": 0.0238,
+  "upper_wick_percent": 0.0238,‚
   "lower_wick_percent": 0.0238,
+  "predecessor": {
+    "high_relation": "HH",
+    "low_relation": "LL",
+    "pattern_code": "HH-LL",
+    "pattern_name": "outside_bar"
+  },
   "open_location": 0.9762,
-  "close_location": 0.0238,
-  "body_percent": 2.0,
-  "range_percent": 2.1,
-  "body_atr": 0.95,
-  "range_atr": 1.0,
+  "close_location": 0.9762,
   "magnitude": "large",
+  "RelativeOpenPercent":  0.02,
+  "RelativeOpenRangePercent": 0.021 ,
+  "body_atr": 0.17,
+  "range_atr": .23,
+  "upper_wick_atr": 0.294,
+  "lower_wick_atr": 0.294,
   "rvol": 999999999,
   "ema9": 9999999.9999,
   "sma20": 9999999.9999,
@@ -611,11 +696,6 @@ Return null whenever either EMA200 value is unavailable or the historical EMA200
   "slope20": 0.99,
   "slope50": 0.99,
   "slope200": 0.99,
-  "predecessor": {
-    "high_relation": "HH",
-    "low_relation": "LL",
-    "pattern_code": "HH-LL",
-    "pattern_name": "outside_bar"
-  }
+  "volume": 999999999 
 }
 
