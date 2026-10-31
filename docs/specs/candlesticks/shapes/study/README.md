@@ -56,7 +56,9 @@ Datetime,,,,,
 
    - CSV output: represent unavailable numeric values as an empty field by default and not a literal `NULL`
 
-    Do not allow `NaN` to leak into JSON as the non-standard token `NaN`. Apply the conversion at the serialization boundary so the calculation layer can retain its existing numeric representation.
+   - Do not allow `NaN` to leak into JSON as the non-standard token `NaN`. Apply the conversion at the serialization boundary so the calculation layer can retain its existing numeric representation.
+
+   - Complete output contract located at docs/specs/candlesticks/shapes/study/output/README.md
 
 
 3. Since we are treating real data , resampled by another process our OHLC consistency check is as follows :
@@ -144,6 +146,9 @@ C = 102.00
 
 
 Calculations:
+
+102.00 > 100.00 → bullish
+
 
 Range     = 2.10
 Body      = 2.00
@@ -361,15 +366,24 @@ Before considering the two dimensions complete, test their combination—not jus
 
 ## 9  Open location
 ###  OpenLocation = (O - L) / Range
+- Following example:
+   OpenLocation = ( 100 - 99.95) / 2.10
+   OpenLocation = 0.02
+
 
 ## 10  Position of the close
 #### CloseLocation = (C - L) / Range
+- Following example:
+  CloseLocation = ( 102 - 99.95) / 2.10
+  CloseLocation = = 0.98
 
 ## 11  Price-relative movement or Normalize price against the asset price
 
 #### ReferencePrice = O (Open) 
 #### RelativeOpenPercent        = Body  / ReferencePrice 
-#### RelativeOpenRangePercent   = Range / ReferencePrice 
+#### RelativeOpenRangePercent   = Range / ReferencePrice
+#### RelativeOpenUpperWickPercent = UpperWick / ReferencePrice
+#### RelativeOpenLowerWickPercent = LowerWick / ReferencePrice 
 
 
 ##  12 ATR(9)
@@ -384,14 +398,27 @@ Before considering the two dimensions complete, test their combination—not jus
 -   Following example:
     Body      = 2.00
     ATR(9) of previous candle 1.70
-    - BodyATR =  2 / 1.70 = .17 
+    - BodyATR =  2 / 1.70 = 1.1764
 
 ### RangeATR = Range / ATR(t-1)
 
 -   Following example:
     Range     = 2.10
     ATR(9) of previous candle 1.70
-    - RangeATR = 2.10 / 1.70 = .23
+    - RangeATR = 2.10 / 1.70 = 1.2352
+
+### UpperWickATR = UpperWick / ATR(t-1)
+
+-   Following example:
+    UpperWick = 0.05
+    ATR(9) of previous candle 1.70
+    - UpperWickATR = 0.05 / 1.70 = 0.0294
+
+### LowerWickATR = LowerWick / ATR(t-1)
+-   Following example:
+    LowerWick = 0.05
+    ATR(9) of previous candle 1.70
+    - LowerWickATR = 0.05 / 1.70 = 0.0294
 
 ### 13.1 Magnitude clasification for both bullish and bearish
 
@@ -678,12 +705,14 @@ Important implementation note: The slope lookback is always 9 observations. It i
     "pattern_name": "outside_bar"
   },
   "open_location": 0.9762,
-  "close_location": 0.9762,
+  "close_location": 0.0238,
   "magnitude": "large",
-  "RelativeOpenPercent":  0.02,
-  "RelativeOpenRangePercent": 0.021 ,
-  "body_atr": 0.17,
-  "range_atr": .23,
+  "RelativeOpenPercent":  0.0200,
+  "RelativeOpenRangePercent": 0.0210 ,
+  "RelativeOpenUpperWickPercent": 0.0005,
+  "RelativeOpenLowerWickPercent": 0.0005,
+  "body_atr": 1.1764,
+  "range_atr": 1.2352,
   "upper_wick_atr": 0.294,
   "lower_wick_atr": 0.294,
   "rvol": 999999999,
