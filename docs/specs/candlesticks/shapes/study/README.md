@@ -58,7 +58,7 @@ Datetime,,,,,
 
    - Do not allow `NaN` to leak into JSON as the non-standard token `NaN`. Apply the conversion at the serialization boundary so the calculation layer can retain its existing numeric representation.
 
-   - Complete output contract located at docs/specs/candlesticks/shapes/study/output/README.md
+   - Complete output contract located at docs/specs/candlesticks/shapes/study/output-contract
 
 
 3. Since we are treating real data , resampled by another process our OHLC consistency check is as follows :
