@@ -1,14 +1,3 @@
-The output contract should define one canonical set of fields and one canonical field order, with the same meanings and values in both formats. The only differences should be naming convention and representation:
-
-- JSON: `snake_case` for all field names.
-- CSV: `PascalCase` for all column names.
-- JSON order: the order shown in the JSON example becomes the canonical order.
-- CSV order: follows the same sequence, translating each JSON field name to PascalCase and flattening nested objects.
-
-One important change from the current README: the instruction to preserve the original input casing should be replaced. Otherwise, it conflicts with the requested naming conventions. The values from the input must be preserved, but the exported field names should follow the conventions below.
-
-## Proposed replacement: Output requirements
-
 # Output requirements — JSON and CSV contract
 
 ## 1. General contract
@@ -25,12 +14,16 @@ The naming conventions are:
 - **JSON:** all field names use `snake_case`.
 - **CSV:** all column names use `PascalCase`.
 - Field names must be translated consistently between formats. Their meanings and values must not change.
+- CSV uses the exact PascalCase names in the canonical column table. Acronyms follow those spellings (for example, `Atr`, `Rvol`, `Ema`, and `Sma`), not all-uppercase variants.
 
 The JSON structure defines the canonical field order. The CSV column order must follow that same sequence.
 
-The output must contain one record per input candle, preserving the original chronological order.
+Before calculations and export, sort records in ascending chronological order. JSON array order and CSV row order must both follow this sorted order.
+For intraday records, sort by the instant represented by the parsed timestamp, including its UTC offset. For daily records, sort by date. Sorting must not change the timestamp timezone or offset serialized in either output.
 
 Each calculation is performed for one ticker and one timeframe per processing run. The output must not combine different tickers or timeframes into the same calculation series.
+
+Do not round calculations or numeric values for export. Serialize finite numbers with enough precision to recover the same numeric value when parsed again. Use a period as the decimal separator in CSV and do not add thousands separators.
 
 ## 2. JSON output contract
 
@@ -127,7 +120,7 @@ Example:
 }
 ```
 
-When there is no predecessor, or the required predecessor comparison cannot be performed, all four fields must be `null`.
+When there is no predecessor, or the required predecessor comparison cannot be performed, all four fields must be `null`. Compare each candle with the immediately preceding row in chronological order. If that row is invalid or lacks the required high/low values, leave the relationship unavailable; do not skip it to compare with an older candle.
 
 The predecessor object must remain present in the JSON record; its fields must not be omitted.
 
@@ -218,7 +211,7 @@ The input may contain daily or intraday candles.
 - For daily records, the `Time` cell must be empty.
 - The JSON `time` field must be `null` when the input does not contain a time.
 
-The timestamp represents the start of the candle interval, using the input timezone information where applicable.
+The timestamp represents the start of the candle interval. Preserve its input timezone and UTC offset; do not convert it to another timezone. When splitting a timestamp, `Date` contains its local date component and `Time` contains its local time and any input offset or `Z` designator.
 
 ## 4. Null, missing and unavailable values
 
@@ -231,13 +224,14 @@ The same logical value must be represented consistently in both output formats.
 | Unavailable numeric result | `null`              | Empty field        |
 | Unavailable text result    | `null`              | Empty field        |
 | Missing time in daily data | `null`              | Empty field        |
+| Empty text value           | `""`                | Empty field        |
 
 The following rules are mandatory:
 
 1. Do not serialize Python `NaN` as the literal JSON token `NaN`.
 2. Do not serialize positive or negative infinity as JSON numbers.
 3. Convert unavailable numeric results to JSON `null` at the serialization boundary.
-4. Represent unavailable CSV values as empty fields, not as the literal strings `NULL`, `NaN` or `None`.
+4. Represent unavailable CSV values and empty text values as empty fields, not as the literal strings `NULL`, `NaN` or `None`. These two cases are intentionally indistinguishable in CSV.
 5. Do not replace unavailable indicator values with zero unless the relevant indicator specification explicitly requires zero.
 6. A genuine numeric zero must remain zero. It must not be confused with an unavailable value.
 
@@ -247,7 +241,7 @@ The calculation layer may continue to use Python/pandas `NaN` internally where a
 
 The pipeline must retain the original candle information in the output.
 
-The input fields are mapped as follows:
+The input values are mapped to output fields as follows. Output names follow this contract even when input column names use different casing.
 
 | Input information                     | JSON field | CSV column |
 | ------------------------------------- | ---------- | ---------- |
@@ -272,7 +266,7 @@ The following requirements apply:
 
 1. Every JSON candle object must correspond to exactly one CSV data row.
 2. Both formats must contain the same number of candle records.
-3. Both formats must preserve the same chronological order.
+3. Both formats must preserve the same ascending chronological order.
 4. Every JSON field must have a corresponding CSV column.
 5. Every nested JSON field must have a corresponding flattened CSV column.
 6. Field names may differ only according to the specified naming conventions and flattening rules.
@@ -291,6 +285,7 @@ At minimum, validate that:
 - JSON field names follow `snake_case`.
 - CSV column names follow `PascalCase`.
 - JSON fields and CSV columns follow the specified order.
+- Records are sorted in ascending chronological order before calculations and export.
 - The predecessor object contains exactly the four defined fields.
 - CSV contains flattened predecessor fields and no nested objects.
 - JSON contains valid standard JSON values.
@@ -299,16 +294,4 @@ At minimum, validate that:
 - JSON and CSV contain the same number of candle records.
 - The record order is identical in both files.
 
-If a candle is invalid according to the OHLC validation rules, the pipeline must report the candle-specific validation error and continue processing the next candle as specified in the OHLC validation section. Invalid data must not be forced into a valid shape or predecessor classification.
-
-## Important points to resolve before treating this as final
-
-I have kept the contract aligned with the latest README, but there are a few issues worth explicitly resolving:
-
-1. `time` on daily data: I have specified that the field remains present but is `null` in JSON and empty in CSV. This avoids changing the schema between daily and intraday exports.
-2. Input casing: The existing instruction to preserve input casing conflicts with the new naming convention. The proposed contract preserves input values, not input field names.
-3. `body_percent`: The README defines this as `Body / Range`, while `relative_open_percent` is `Body / Open`. These are separate measurements and should remain separate fields.
-4. Invalid candles: The README requires reporting an error and continuing. It does not fully define whether invalid input values should remain in the exported row or whether the row should be excluded. The proposed contract assumes the row is retained and invalid derived values are unavailable; this should be confirmed.
-5. Numeric precision: The README does not specify rounding or decimal precision. I recommend retaining full calculation precision internally and applying a single documented serialization precision policy, rather than rounding intermediate calculations.
-
-One correction to the example: its `open=100` and `close=102` imply `bullish` direction, not `bearish`. Also, `BodyATR = 2 / 1.70` is approximately `1.18`, and `RangeATR = 2.10 / 1.70` is approximately `1.24`. Those sample values should be corrected independently of the output contract.
+For an invalid candle, retain the input record and its original input values in both outputs. Report the candle-specific error using the format defined in the study specification and continue with the next candle. Do not assign direction, shape, candle geometry, or predecessor classifications to invalid data. Its invalidity also makes it unavailable as the predecessor for the next row; do not skip it. Other indicators follow their own input-validity and warm-up rules.

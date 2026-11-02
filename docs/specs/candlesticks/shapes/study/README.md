@@ -28,7 +28,7 @@ Datetime,,,,,
 - Each row represent one candle or bar each of these:
 
 1. Belong to one instrument and one timeframe per calculation.
-2. Are ordered chronologically (when apply) in ascending timestamp order.
+2. Are sorted by the pipeline in ascending chronological order before calculations and export.
 3. Have at most one bar per day/timestamp.
 4. Use the previous bar in that ordered series for the previous close in TR calculations.
 
@@ -37,16 +37,15 @@ Datetime,,,,,
 
 
 2. The outputs are :
-    2.1 a json formated file containing all the input data (preserving their casing) + all the key:value pairs as described/calculated
+    2.1 A JSON-formatted file containing the input values and all calculated key-value pairs. JSON field names use the canonical `snake_case` names in the [output contract](./output-contract/README.md).
 
-    2.1 a CSV file containing the input data + all the key:value pairs as described/calculated
+    2.2 A CSV file containing the same input values and calculated fields. CSV column names use the canonical `PascalCase` names in the [output contract](./output-contract/README.md).
 
-    2.1.1  CSV column order:
-    Ticker,Date,time,High,Low,Open,Close,Volume, {New Fields , order and value as in the json formated file }
+    2.3 JSON and CSV represent the same sorted records. The output contract defines their required field names, order, value representation, and precision.
 
-    2.1.2 Apply the same field names and meanings in JSON and CSV. For CSV, flatten the nested fields into columns such as Direction, Shape, PredecessorHighRelation, PredecessorLowRelation, and PredecessorPatternCode
+    2.4 Apply the same field meanings and values in JSON and CSV. Flatten nested JSON fields into CSV columns, including all four predecessor fields.
 
-    2.2  `null` versus Python `NaN`
+    2.5  `null` versus Python `NaN`
 
     These are different representations of an unavailable value:
 
@@ -92,10 +91,10 @@ More details can be found on docs/specs/Indicators-general-considerations/README
 5.  Warm-Up period usually on this study go from 1 through 9 except for specifics Moving Average where n <> 9
     - resolve to Null/NaN
 
-6.  Each indicator has their own rules for Zero or Missing Baselines for any other operations like Division by Zero (#DIV/0!) runtime crash.
-    - resolve to 0.0 
+6. This is a standalone program in this repository that only depends on getOHLC_*.py and some other prototypes named on this document , any other code in ths repo might have different parameters and defaults that the ones defined in this document.
 
-7. This is a standalone program in this repository that only depends on getOHLC_*.py and some other prototypes named on this document , any other code in ths repo might have different parameters and defaults that the ones defined in this document.
+7. As a naming convention every variable ending in `percent` is percentage in its decimal form , for example 25% is stored as 0.25
+
 
 # Given:
 
@@ -241,19 +240,21 @@ If the immediately preceding row has invalid or missing high/low values, the rel
 
 D. OHLC validation
 
-Require finite numeric values and the structural constraints:
+Require finite, positive numeric OHLC values and the structural constraints:
 
 \\[ H \geq \max(O,C), \qquad L \leq \min(O,C), \qquad H \geq L \\]
 
-An invalid candle should produce a clear 
-### validation error in the form of:
- - "Ticker ".$Ticker. "Has an invalid candle at".$time(in the feed)."Please check"
-    after reporting the error of that specific candle continue with the next
-    It should not be forced into a shape or predecessor category.
+An invalid candle must produce a candle-specific error in this format, using the timestamp as represented in the feed:
+
+```text
+Ticker <Ticker> has an invalid candle at <timestamp> (in the feed). Please check.
+```
+
+For a daily candle without a time, use its feed date as `<timestamp>`. After reporting the invalid candle, continue with the next row. Retain the input row and its original values in both outputs, but do not assign it a direction, shape, candle geometry, or predecessor classification. The immediately following row must not skip this invalid row to find an older predecessor; its predecessor fields are unavailable. Other indicators follow their own input-validity and warm-up rules.
 
 E. Session and timeframe boundaries
 
-Use the preceding candle for the same ticker and timeframe, in chronological order. Do not compare different tickers or timeframes. Whether the comparison crosses overnight, weekend, or other session gaps should be explicit; the default is to compare consecutive available candles in the series, even across such gaps.
+Use the immediately preceding row in the chronologically sorted series for the same ticker and timeframe. Do not compare different tickers or timeframes, and do not skip an invalid preceding row. Comparisons may cross overnight, weekend, or other session gaps; compare consecutive available rows in the series.
 
 F. 3 fields to define a candle 
 We use `direction` + `shape` + `predecessor pattern code` as three separate output fields. This makes the design coherent, eliminates the predecessor-code inconsistency, and prevents future shape changes from breaking predecessor analysis. The nine predecessor codes form a complete classification of high/low relationships; descriptive trading interpretations should remain a separate, optional layer with their own explicit criteria.
@@ -514,7 +515,7 @@ Source moving average: EMA9 Slope lookback: 9 bars
 Calculate the percentage change between the current EMA9 value and the EMA9 value nine bars earlier.
 
 ```
-SLOPE9 = ((EMA9[t] - EMA9[t-9]) / EMA9[t-9]) * 100
+SLOPE9 = ((EMA9[t] - EMA9[t-9]) / EMA9[t-9])
 
 ```
 
@@ -544,7 +545,7 @@ This is the only slope indicator calculated using SMA rather than EMA.
 
 ```
 
-SLOPE20 = ((SMA20[t] - SMA20[t-9]) / SMA20[t-9]) * 100
+SLOPE20 = ((SMA20[t] - SMA20[t-9]) / SMA20[t-9]) 
 
 ```
 
@@ -571,7 +572,7 @@ Source moving average: EMA50 Slope lookback: 9 bars
 
 ```
 
-SLOPE50 = ((EMA50[t] - EMA50[t-9]) / EMA50[t-9]) * 100
+SLOPE50 = ((EMA50[t] - EMA50[t-9]) / EMA50[t-9])
 
 ```
 
@@ -658,6 +659,8 @@ If missing or invalid data interrupts the moving-average calculation, the slope 
 
 ### 27.2 Slope interpretation
 
+For better understanding before interpreting the slopes convert the values from its decimal forms to percentages for example 0.04 * 100 = 4%.
+
 The following thresholds provide a descriptive interpretation of the calculated slope. They do not alter the underlying calculation.
 
 | Slope percentage                               | Interpretation      |
@@ -682,39 +685,39 @@ Important implementation note: The slope lookback is always 9 observations. It i
 # Key value pairs : Output example in Json that can be  appended as columns as well
 
 {
-  "Ticker": "ABCXYZ",
-  "Date": 2026-10-15,
-  "Time": 09:30:00,
+  "ticker": "ABCXYZ",
+  "date": "2026-10-15",
+  "time": "09:30:00-04:00",
   "open": 100.00,
   "high": 102.05,
   "low": 99.95,
   "close": 102.00,
-  "direction": "bearish",
-  "shape": "bearish_marubozu",
-  "range": 2.10,
-  "body": 2.00,
-  "upperwick": 0.05,
-  "lowerwick": 0.05,
-  "body_percent": 0.9524,
-  "upper_wick_percent": 0.0238,‚
-  "lower_wick_percent": 0.0238,
+  "direction": "bullish",
+  "shape": "bullish_marubozu",
+  "range": 2.0999999999999943,
+  "body": 2.0,
+  "upper_wick": 0.04999999999999716,
+  "lower_wick": 0.04999999999999716,
+  "body_percent": 0.952380952380955,
+  "upper_wick_percent": 0.02380952380952252,
+  "lower_wick_percent": 0.02380952380952252,
   "predecessor": {
     "high_relation": "HH",
     "low_relation": "LL",
     "pattern_code": "HH-LL",
     "pattern_name": "outside_bar"
   },
-  "open_location": 0.9762,
-  "close_location": 0.0238,
+  "open_location": 0.02380952380952252,
+  "close_location": 0.9761904761904775,
   "magnitude": "large",
-  "RelativeOpenPercent":  0.0200,
-  "RelativeOpenRangePercent": 0.0210 ,
-  "RelativeOpenUpperWickPercent": 0.0005,
-  "RelativeOpenLowerWickPercent": 0.0005,
-  "body_atr": 1.1764,
-  "range_atr": 1.2352,
-  "upper_wick_atr": 0.294,
-  "lower_wick_atr": 0.294,
+  "relative_open_percent": 0.02,
+  "relative_open_range_percent": 0.020999999999999942,
+  "relative_open_upper_wick_percent": 0.0004999999999999716,
+  "relative_open_lower_wick_percent": 0.0004999999999999716,
+  "body_atr": 1.1764705882352942,
+  "range_atr": 1.2352941176470555,
+  "upper_wick_atr": 0.02941176470588068,
+  "lower_wick_atr": 0.02941176470588068,
   "rvol": 999999999,
   "ema9": 9999999.9999,
   "sma20": 9999999.9999,
@@ -727,4 +730,3 @@ Important implementation note: The slope lookback is always 9 observations. It i
   "slope200": 0.99,
   "volume": 999999999 
 }
-
