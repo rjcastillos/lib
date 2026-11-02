@@ -77,3 +77,14 @@ Before completing a change:
 1. Check the changed Markdown for valid structure and consistent paths.
 2. Run the narrowest relevant test or script validation available.
 3. Review the final diff for unrelated changes and accidental generated files.
+
+# GitHub Copilot Rules of Engagement
+
+## Token Efficiency & Economy
+- Output diffs or targeted snippets: Never rewrite an entire file. Provide only the modified lines or functions with 1-2 lines of surrounding context.
+- No boilerplate: Assume all imports, standard boilerplates, and existing configurations are present. Output only the requested logic.
+- DRY output: Do not duplicate code blocks or show multiple variations.
+
+## Response Formatting
+- Zero prose: Provide code immediately. Unless explicitly asked, omit introductions, explanations, summaries, and closing remarks.
+
