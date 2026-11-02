@@ -416,6 +416,7 @@ Before considering the two dimensions complete, test their combination—not jus
 ##  12 ATR(9)
 - Calculation , formula ,rules  and example are detailed in docs/specs/ATR/README.md
 - The loopback for this implementation is 9 with a warm-up period (from 1 - 8)
+- Export the current row's ATR value in the top-level `atr` field immediately after `shape`. It is `null` until the configured period has enough consecutive valid true-range observations.
 
 
 ## 13  Move size (Magnitude) relative to the Average True Range of last interval

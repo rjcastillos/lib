@@ -37,6 +37,7 @@ Each object represents one input candle and contains:
 - Original identifying information: ticker, date and, when available, time.
 - Original OHLCV input values.
 - Calculated candle direction and shape.
+- Calculated ATR for the configured ATR period.
 - Calculated candle geometry.
 - Predecessor relationship information.
 - Price-location and relative-price measurements.
@@ -64,36 +65,37 @@ The fields must appear in the following order:
 | 7     | `close`                       | number         | Closing price                                  |
 | 8     | `direction`                   | string or null | `bullish`, `bearish` or `neutral`              |
 | 9     | `shape`                       | string or null | Candle shape classification                    |
-| 10    | `range`                       | number or null | High minus low                                 |
-| 11    | `body`                        | number or null | Absolute difference between close and open     |
-| 12    | `upper_wick`                  | number or null | Upper wick size                                |
-| 13    | `lower_wick`                  | number or null | Lower wick size                                |
-| 14    | `body_percent`                | number or null | Body divided by range                          |
-| 15    | `upper_wick_percent`          | number or null | Upper wick divided by range                    |
-| 16    | `lower_wick_percent`          | number or null | Lower wick divided by range                    |
-| 17    | `predecessor`                 | object         | Predecessor relationship information           |
-| 18    | `open_location`               | number or null | Opening price location within the candle range |
-| 19    | `close_location`              | number or null | Closing price location within the candle range |
-| 20    | `magnitude`                   | string or null | Movement magnitude classification              |
-| 21    | `relative_open_percent`       | number or null | Body relative to the opening price             |
-| 22    | `relative_open_range_percent` | number or null | Candle range relative to the opening price     |
-| 23    | `relative_open_upper_wick_percent` | number or null | Upper wick divided by opening price            |
-| 24    | `relative_open_lower_wick_percent` | number or null | Lower wick divided by opening price            |
-| 25    | `body_atr`                    | number or null | Body normalized by previous-period ATR         |
-| 26    | `range_atr`                   | number or null | Range normalized by previous-period ATR        |
-| 27    | `upper_wick_atr`              | number or null | Upper wick normalized by previous-period ATR   |
-| 28    | `lower_wick_atr`              | number or null | Lower wick normalized by previous-period ATR   |
-| 29    | `rvol`                        | number or null | Relative volume                                |
-| 30    | `ema9`                        | number or null | EMA with period 9                              |
-| 31    | `sma20`                       | number or null | SMA with period 20                             |
-| 32    | `ema50`                       | number or null | EMA with period 50                             |
-| 33    | `ema100`                      | number or null | EMA with period 100                            |
-| 34    | `ema200`                      | number or null | EMA with period 200                            |
-| 35    | `slope9`                      | number or null | EMA9 fractional slope over 9 observations      |
-| 36    | `slope20`                     | number or null | SMA20 fractional slope over 9 observations     |
-| 37    | `slope50`                     | number or null | EMA50 fractional slope over 9 observations     |
-| 38    | `slope200`                    | number or null | EMA200 fractional slope over 9 observations    |
-| 39    | `volume`                      | number or null | Original candle volume                         |
+| 10    | `atr`                          | number or null | ATR for the configured period, aligned to this candle |
+| 11    | `range`                       | number or null | High minus low                                 |
+| 12    | `body`                        | number or null | Absolute difference between close and open     |
+| 13    | `upper_wick`                  | number or null | Upper wick size                                |
+| 14    | `lower_wick`                  | number or null | Lower wick size                                |
+| 15    | `body_percent`                | number or null | Body divided by range                          |
+| 16    | `upper_wick_percent`          | number or null | Upper wick divided by range                    |
+| 17    | `lower_wick_percent`          | number or null | Lower wick divided by range                    |
+| 18    | `predecessor`                 | object         | Predecessor relationship information           |
+| 19    | `open_location`               | number or null | Opening price location within the candle range |
+| 20    | `close_location`              | number or null | Closing price location within the candle range |
+| 21    | `magnitude`                   | string or null | Movement magnitude classification              |
+| 22    | `relative_open_percent`       | number or null | Body relative to the opening price             |
+| 23    | `relative_open_range_percent` | number or null | Candle range relative to the opening price      |
+| 24    | `relative_open_upper_wick_percent` | number or null | Upper wick divided by opening price     |
+| 25    | `relative_open_lower_wick_percent` | number or null | Lower wick divided by opening price     |
+| 26    | `body_atr`                    | number or null | Body normalized by previous-period ATR         |
+| 27    | `range_atr`                   | number or null | Range normalized by previous-period ATR        |
+| 28    | `upper_wick_atr`              | number or null | Upper wick normalized by previous-period ATR   |
+| 29    | `lower_wick_atr`              | number or null | Lower wick normalized by previous-period ATR   |
+| 30    | `rvol`                        | number or null | Relative volume                                |
+| 31    | `ema9`                        | number or null | EMA with period 9                              |
+| 32    | `sma20`                       | number or null | SMA with period 20                             |
+| 33    | `ema50`                       | number or null | EMA with period 50                             |
+| 34    | `ema100`                      | number or null | EMA with period 100                            |
+| 35    | `ema200`                      | number or null | EMA with period 200                            |
+| 36    | `slope9`                      | number or null | EMA9 fractional slope over 9 observations      |
+| 37    | `slope20`                     | number or null | SMA20 fractional slope over 9 observations     |
+| 38    | `slope50`                     | number or null | EMA50 fractional slope over 9 observations     |
+| 39    | `slope200`                    | number or null | EMA200 fractional slope over 9 observations    |
+| 40    | `volume`                      | number or null | Original candle volume                         |
 
 The relative-wick fields are calculated as `upper_wick / open` and `lower_wick / open`, respectively. They are unavailable when the opening price is invalid or zero.
 
@@ -169,40 +171,41 @@ The CSV columns must follow the same sequence as the JSON fields, including the 
 | 7     | `Close`                    |
 | 8     | `Direction`                |
 | 9     | `Shape`                    |
-| 10    | `Range`                    |
-| 11    | `Body`                     |
-| 12    | `UpperWick`                |
-| 13    | `LowerWick`                |
-| 14    | `BodyPercent`              |
-| 15    | `UpperWickPercent`         |
-| 16    | `LowerWickPercent`         |
-| 17    | `PredecessorHighRelation`  |
-| 18    | `PredecessorLowRelation`   |
-| 19    | `PredecessorPatternCode`   |
-| 20    | `PredecessorPatternName`   |
-| 21    | `PredecessorStatus`        |
-| 22    | `OpenLocation`             |
-| 23    | `CloseLocation`            |
-| 24    | `Magnitude`                |
-| 25    | `RelativeOpenPercent`      |
-| 26    | `RelativeOpenRangePercent` |
-| 27    | `RelativeOpenUpperWickPercent` |
-| 28    | `RelativeOpenLowerWickPercent` |
-| 29    | `BodyAtr`                  |
-| 30    | `RangeAtr` |
-| 31    | `UpperWickAtr` |
-| 32    | `LowerWickAtr` |
-| 33    | `Rvol` |
-| 34    | `Ema9` |
-| 35    | `Sma20` |
-| 36    | `Ema50` |
-| 37    | `Ema100` |
-| 38    | `Ema200` |
-| 39    | `Slope9` |
-| 40    | `Slope20` |
-| 41    | `Slope50` |
-| 42    | `Slope200` |
-| 43    | `Volume` |
+| 10    | `Atr`                      |
+| 11    | `Range`                    |
+| 12    | `Body`                     |
+| 13    | `UpperWick`                |
+| 14    | `LowerWick`                |
+| 15    | `BodyPercent`              |
+| 16    | `UpperWickPercent`         |
+| 17    | `LowerWickPercent`         |
+| 18    | `PredecessorHighRelation`  |
+| 19    | `PredecessorLowRelation`   |
+| 20    | `PredecessorPatternCode`   |
+| 21    | `PredecessorPatternName`   |
+| 22    | `PredecessorStatus`        |
+| 23    | `OpenLocation`             |
+| 24    | `CloseLocation`            |
+| 25    | `Magnitude`                |
+| 26    | `RelativeOpenPercent`      |
+| 27    | `RelativeOpenRangePercent` |
+| 28    | `RelativeOpenUpperWickPercent` |
+| 29    | `RelativeOpenLowerWickPercent` |
+| 30    | `BodyAtr`                  |
+| 31    | `RangeAtr` |
+| 32    | `UpperWickAtr` |
+| 33    | `LowerWickAtr` |
+| 34    | `Rvol` |
+| 35    | `Ema9` |
+| 36    | `Sma20` |
+| 37    | `Ema50` |
+| 38    | `Ema100` |
+| 39    | `Ema200` |
+| 40    | `Slope9` |
+| 41    | `Slope20` |
+| 42    | `Slope50` |
+| 43    | `Slope200` |
+| 44    | `Volume` |
 
 The CSV column order is mandatory and must not depend on dictionary iteration order or the order in which calculations are executed.
 
