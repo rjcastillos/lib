@@ -177,44 +177,44 @@ Important: shape and predecessor relationship are independent classifications. T
 
 For example, `bullish_hammer_shape` and `HH-LL` are not contradictory. The first describes the candle's body and wicks; the second says the candle's high exceeded the previous high while its low fell below the previous low.
 
-### 7.4  Candle shape: retain the accepted, symmetric rules
+### 7.4 Candle shape: canonical thresholds and precedence
 
-Use the refined shape algorithm we already agreed on, including its exclusive rule precedence:
+Apply these fixed thresholds to valid candles using unrounded ratios. `BodyRatio`, `UpperWickRatio`, and `LowerWickRatio` are defined in section 7.2. The same thresholds apply to bullish and bearish candles; only the directional mapping of the rejection and long wicks changes.
 
-1. `flat_neutral_candle` — range is zero.
-2. `doji_neutral_candle` — non-flat candle with equal open and close.
-3. `marubozu` — dominant body and very small wicks.
-4. `lower_rejection` or `upper_rejection` — dominant body with a qualifying rejection-side wick.
-5. `momentum` — dominant body without the rejection geometry.
-6. `hammer_shape` or `inverted_hammer_shape` — small body and one qualifying long wick.
-7. `spinning_top` — small body and two qualifying wicks.
-8. `standard` — any remaining valid bullish or bearish candle.
+| Precedence | Shape | Body ratio | Wick requirements |
+| --- | --- | --- | --- |
+| 1 | `flat_neutral_candle` | Range is zero | Valid OHLC implies `C = O`. |
+| 2 | `doji_neutral_candle` | `C = O`, nonzero range | No additional wick requirement. |
+| 3 | `bullish_marubozu` / `bearish_marubozu` | `>= 0.90` | Both wick ratios `<= 0.05`. |
+| 4 | `bullish_lower_rejection` / `bearish_upper_rejection` | `>= 0.60` and `< 0.90` | Rejection-side wick ratio `>= 0.15`; opposite wick ratio `<= 0.10`. |
+| 5 | `bullish_momentum` / `bearish_momentum` | `>= 0.60` and `< 0.90` | Both wick ratios `<= 0.20`, excluding candles matching rejection. |
+| 6 | `bullish_hammer_shape` / `bearish_hammer_shape` | `> 0` and `<= 0.35` | Long wick ratio `>= 0.50`; opposite wick ratio `<= 0.10`; long wick size `>= 2 * Body`. |
+| 7 | `bullish_inverted_hammer_shape` / `bearish_inverted_hammer_shape` | `> 0` and `<= 0.35` | Mirrored hammer rule: upper long wick for bullish, lower long wick for bearish. |
+| 8 | `bullish_spinning_top` / `bearish_spinning_top` | `> 0` and `<= 0.30` | Both wick ratios `>= 0.20`. |
+| 9 | `bullish_standard` / `bearish_standard` | Any remaining valid directional candle | Fallback; no additional restriction. |
 
-For directional candles, prefix the applicable suffix with `bullish_` or `bearish_`. For example, `bullish_momentum` and `bearish_momentum`.
-
-This preserves the symmetry between bullish and bearish shapes. The same thresholds apply to both; only the directional interpretation of the wicks changes. The `standard` fallback ensures every valid non-neutral candle receives a shape.
+For rejection and hammer rules, the rejection/hammer long wick is the lower wick for bullish candles and the upper wick for bearish candles. For inverted-hammer rules, those directions are reversed. Neutral rules are evaluated before directional rules. Rejection takes precedence over momentum; the remaining ratio bands and wick constraints make the other specialized classifications mutually exclusive. Every valid non-neutral candle must receive exactly one directional shape.
 
 #### 7.4.1
-- This implementation above is functioning in a POC python code python/candle_shape.py for more details 
-- python/candle_shape.py can be used for this implementation adapting the code as a function.
+- `python/candle_shape.py` is a prototype implementing these thresholds and can be adapted as an importable calculation function. The study specification remains authoritative.
 
 ## 7.5 Predecessor relationship:
 
 The code is always `high_relation-low_relation`, so there are exactly nine combinations.
 
-| Pattern code | Interpretation                  | What changed?              |
-| ------------ | ------------------------------- | -------------------------- |
-| `HH-HL`      | Both extremes shift upward      | Higher high, higher low    |
-| `HH-EL`      | High expands upward             | Higher high, unchanged low |
-| `HH-LL`      | Outside bar                     | Higher high, lower low     |
-| `LH-HL`      | Inside bar                      | Lower high, higher low     |
-| `LH-LL`      | Both extremes shift downward    | Lower high, lower low      |
-| `LH-EL`      | Upper boundary shifts downward  | Lower high, unchanged low  |
-| `EH-HL`      | Lower boundary shifts upward    | Unchanged high, higher low |
-| `EH-LL`      | Lower boundary expands downward | Unchanged high, lower low  |
-| `EH-EL`      | Same high-low boundaries        | Both extremes unchanged    |
+| Pattern code | `pattern_name`           | What changed?              |
+| ------------ | ------------------------ | -------------------------- |
+| `HH-HL`      | `upward_shift`           | Higher high, higher low    |
+| `HH-EL`      | `upper_expansion`        | Higher high, unchanged low |
+| `HH-LL`      | `outside_bar`            | Higher high, lower low     |
+| `LH-HL`      | `inside_bar`             | Lower high, higher low     |
+| `LH-LL`      | `downward_shift`         | Lower high, lower low      |
+| `LH-EL`      | `upper_contraction`      | Lower high, unchanged low  |
+| `EH-HL`      | `lower_contraction`      | Unchanged high, higher low |
+| `EH-LL`      | `lower_expansion`        | Unchanged high, lower low  |
+| `EH-EL`      | `unchanged_boundaries`   | Both extremes unchanged    |
 
-These names describe the geometry, not a guaranteed bullish or bearish market signal. For example, an outside bar can be bullish or bearish depending on its open and close.
+The approved names describe only the relationship geometry, not a bullish or bearish market signal. `outside_bar` and `inside_bar` are conventional concise names. The other names describe shifts or changes in the upper (high) and lower (low) boundaries. For example, an outside bar can be bullish or bearish depending on its open and close. These labels are the finalized `pattern_name` output values.
 
 ### 7.5.1 comparison rules
 
@@ -232,7 +232,7 @@ The three comparisons must be mutually exclusive: every valid comparison produce
 
 B. First candle
 
-The first candle has no predecessor. Its shape and direction are still calculated, but its predecessor fields must be `null`, not fabricated.
+The first candle has no predecessor. Its shape and direction are still calculated. Its four relationship fields (`high_relation`, `low_relation`, `pattern_code`, and `pattern_name`) must be `null`, and its predecessor `status` must be `NO_PREDECESSOR`.
 
 C. Missing predecessor
 
@@ -250,7 +250,15 @@ An invalid candle must produce a candle-specific error in this format, using the
 Ticker <Ticker> has an invalid candle at <timestamp> (in the feed). Please check.
 ```
 
-For a daily candle without a time, use its feed date as `<timestamp>`. After reporting the invalid candle, continue with the next row. Retain the input row and its original values in both outputs, but do not assign it a direction, shape, candle geometry, or predecessor classification. The immediately following row must not skip this invalid row to find an older predecessor; its predecessor fields are unavailable. Other indicators follow their own input-validity and warm-up rules.
+For an invalid supplied Volume value, report:
+
+```text
+Ticker <Ticker> has invalid volume at <timestamp> (in the feed). Please check.
+```
+
+For a daily candle without a time, use its feed date as `<timestamp>`. Write each validation error to standard error, continue with the next row, and write a final summary to standard error with the number of valid and invalid rows and whether both output files were written. Count a row only once as invalid even if it has more than one validation error. If both output files are written but one or more rows are invalid, the command exits with status `1`. It exits with status `0` only when both output files are written and all rows are valid. A fatal input, processing, or output failure that prevents completing both outputs exits with status `2`.
+
+Retain the input row in both outputs. Preserve finite numeric source values even when a candle violates structural OHLC rules, but do not assign that candle a direction, shape, candle geometry, or predecessor classification. Represent missing, non-numeric, NaN, or infinite numeric inputs as JSON `null` and an empty CSV cell. Missing Volume is allowed and is not an error. For supplied invalid Volume, preserve valid OHLC-based candle and predecessor calculations while making `volume` and affected `rvol` results unavailable. The immediately following row must not skip an invalid OHLC candle to find an older predecessor; its predecessor fields are unavailable. Other indicators follow their own input-validity and warm-up rules.
 
 E. Session and timeframe boundaries
 
@@ -347,6 +355,18 @@ FUNCTION classifyPredecessorRelationship(previousCandle, currentCandle):
         status: "OK"
     }
 END FUNCTION
+
+PATTERN_NAME_MAP = {
+    "HH-HL": "upward_shift",
+    "HH-EL": "upper_expansion",
+    "HH-LL": "outside_bar",
+    "LH-HL": "inside_bar",
+    "LH-LL": "downward_shift",
+    "LH-EL": "upper_contraction",
+    "EH-HL": "lower_contraction",
+    "EH-LL": "lower_expansion",
+    "EH-EL": "unchanged_boundaries"
+}
 ---
 
 ## 8. Minimum test matrix
@@ -355,15 +375,21 @@ Before considering the two dimensions complete, test their combination—not jus
 
 | Test                                                   | Expected behavior                                                                                |
 | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
-| First valid candle                                     | Direction and shape calculated; predecessor unavailable                                          |
+| First valid candle                                     | Direction and shape calculated; four relationship fields null; status `NO_PREDECESSOR`          |
+| Valid predecessor comparison                            | All four relationship fields populated; status `OK`                                              |
+| Missing comparison high/low                             | Four relationship fields null; status `MISSING_PRICE`                                           |
+| Non-numeric or non-finite comparison price              | Four relationship fields null; status `INVALID_PRICE`                                            |
+| Structurally invalid high/low pair                      | Four relationship fields null; status `INVALID_OHLC`                                             |
 | Bullish hammer-shaped candle with `HH-HL`              | Bullish hammer shape; `HH-HL` relationship                                                       |
 | Bearish hammer-shaped candle with `LH-LL`              | Bearish hammer shape; `LH-LL` relationship                                                       |
 | Same OHLC geometry shifted relative to its predecessor | Same shape; potentially different predecessor code                                               |
-| All nine high/low combinations                         | Each code produced exactly once                                                                  |
-| Equal high and low boundaries                          | `EH-EL`                                                                                          |
+| All nine high/low combinations                         | Each code and its name produced exactly once                                                     |
+| Equal high and low boundaries                          | `EH-EL`; name `unchanged_boundaries`                                                             |
 | Flat candle                                            | `flat_neutral_candle`; predecessor comparison still calculated if a valid previous candle exists |
 | Doji with a nonzero range                              | `doji_neutral_candle`; predecessor comparison still calculated                                   |
 | Invalid OHLC or missing previous extremes              | Explicit validation error or unavailable relationship, never a fabricated classification         |
+| Shape threshold immediately below, at, and above each boundary | The specified inclusive/exclusive comparisons determine exactly one shape |
+| Mirrored bullish and bearish candle geometry            | Corresponding shape classifications are mirrored, including rejection and wick orientation       |
 
 ## 9  Open location
 ###  OpenLocation = (O - L) / Range
@@ -443,40 +469,30 @@ else:
 
 - Following example:
   ATR(9) of previous candle 1.70
-- UpperWickPercent = 0.05 / 1.70 = 0.294
-- LowerWickPercent = 0.05 / 2.10 = 0.294
+- UpperWickPercent = 0.05 / 1.70 = 0.0294
+- LowerWickPercent = 0.05 / 2.10 = 0.0238
 
 
-# 17 RVOL 
-## Method A: Standard Daily RVOL
+# 17 RVOL
+## Prior-bars relative volume
 
-The fundamental calculation formula is straightforward:
-\(\text{RVOL}=\frac{\text{Current\ Period\ Volume}}{\text{Average\ Volume\ Over\ }N\text{\ Periods}}\)
+For each candle, calculate RVOL as its volume divided by the arithmetic mean of the volumes of the immediately preceding 9 bars in the same ticker and timeframe:
 
-Step-by-Step Example: 9 Past Periods + Current Period
+```text
+RVOL[t] = Volume[t] / mean(Volume[t-9], ..., Volume[t-1])
+```
 
-Lookback window is \(N = 9\) periods. Here is exactly how to calculate it:
+The current bar is excluded from the baseline. Daily input therefore compares with the previous 9 daily bars; intraday input compares with the previous 9 bars at that intraday timeframe. This is a prior-bars calculation, not an intraday time-of-day-adjusted RVOL calculation.
 
-Step 1: sample data 
+Return `null` when fewer than 9 previous bars exist, the current volume or any of the 9 baseline volumes is missing or invalid, or the baseline average is zero. Do not skip a missing/invalid volume to reach an older bar. Missing volume is allowed: serialize it as unavailable and do not report an error solely because it is absent. A supplied negative, non-numeric, NaN, or infinite volume is invalid: report it using the volume-specific validation error in section D, serialize it as unavailable, and do not use it in RVOL. Invalid volume does not invalidate candle calculations that have valid OHLC. Return `0.0` when the current volume is genuinely zero and the baseline average is positive. RVOL is a ratio and is not multiplied by 100.
 
-• Past 9 Periods Volume: 12,000, 15,000, 11,000, 14,000, 16,000, 13,000, 15,000, 17,000, 14,000 shares
+Example: previous-bar volumes are `12,000, 15,000, 11,000, 14,000, 16,000, 13,000, 15,000, 17,000, 14,000`; current volume is `28,000`.
 
-• Current Period Volume: 28,000 shares
-
-Step 2: Calculate the historical average
-
-Add the volumes of your 9 historical periods together and divide by 9:
-\(\text{Sum}=12,000+15,000+11,000+14,000+16,000+13,000+15,000+17,000+14,000=127,000\)
-\(\text{Average\ Volume}=\frac{127,000}{9}\approx \mathbf{14,111.11}\text{\ shares}\)
-
-Step 3: Compute the RVOL ratio
-
-Divide the current period's volume by that historical average:
-\(\text{RVOL}=\frac{28,000}{14,111.11}\approx \mathbf{1.98}\)
-
-- Use the previous 9 observations as the baseline and return null when the baseline is unavailable or invalid. 
-
-- Return 0.0 only when the current volume is genuinely zero and the baseline is positive. 
+```text
+Baseline average = 127,000 / 9
+RVOL = 28,000 / (127,000 / 9) = 252,000 / 127,000
+     = 1.984251968503937
+```
 
 
 
@@ -598,7 +614,7 @@ The first valid result is bar 59, assuming uninterrupted data and one-based bar 
 Source moving average: EMA200 Slope lookback: 9 bars
 
 ```
-SLOPE200 = ((EMA200[t] - EMA200[t-9]) / EMA200[t-9]) * 100
+SLOPE200 = ((EMA200[t] - EMA200[t-9]) / EMA200[t-9])
 ```
 
 Rules:
@@ -622,11 +638,11 @@ The first valid result is bar 209, assuming uninterrupted data and one-based bar
 
 ### 27.1 General calculation and validity rules
 
-All four slope indicators use the same calculation principle:
+All four slope indicators use the same calculation principle. In this study, the raw slope output is a decimal fraction: for example, `0.04` represents `4%`. Do not multiply the stored/exported slope by 100. Multiply by 100 only when converting it to a human-readable percentage for interpretation.
 
 1. Calculate the relevant moving average according to its own specification.
 2. Compare its current value with its value exactly 9 observations earlier.
-3. Calculate the percentage change using the historical value as the denominator.
+3. Calculate the fractional change using the historical value as the denominator.
 4. Return `null` until both required moving-average values are available.
 5. Return `null` if the historical denominator is zero or invalid.
 
@@ -705,7 +721,8 @@ Important implementation note: The slope lookback is always 9 observations. It i
     "high_relation": "HH",
     "low_relation": "LL",
     "pattern_code": "HH-LL",
-    "pattern_name": "outside_bar"
+    "pattern_name": "outside_bar",
+    "status": "OK"
   },
   "open_location": 0.02380952380952252,
   "close_location": 0.9761904761904775,

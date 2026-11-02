@@ -4,8 +4,16 @@ Source moving average: EMA9 Slope lookback: 9 bars
 
 Calculate the percentage change between the current EMA9 value and the EMA9 value nine bars earlier.
 
+> For this study, use the formulas labeled `ST`: raw slope values are decimal fractions (for example, `0.04` represents `4%`). The other formulas show percentage-scaled values.
+
 ```
 SLOPE9 = ((EMA9[t] - EMA9[t-9]) / EMA9[t-9]) * 100
+
+```
+```
+ST:
+
+SLOPE9 = ((EMA9[t] - EMA9[t-9]) / EMA9[t-9])
 
 ```
 
@@ -39,6 +47,13 @@ SLOPE20 = ((SMA20[t] - SMA20[t-9]) / SMA20[t-9]) * 100
 
 ```
 
+```
+ST:
+
+SLOPE20 = ((SMA20[t] - SMA20[t-9]) / SMA20[t-9])
+
+```
+
 Rules:
 
 - Use the SMA20 values calculated in section 22.
@@ -66,6 +81,11 @@ SLOPE50 = ((EMA50[t] - EMA50[t-9]) / EMA50[t-9]) * 100
 
 ```
 
+```
+ST:
+SLOPE50 = ((EMA50[t] - EMA50[t-9]) / EMA50[t-9])
+
+```
 Rules:
 
 - Use the EMA50 values calculated in section 19.
@@ -89,6 +109,10 @@ Source moving average: EMA200 Slope lookback: 9 bars
 
 ```
 SLOPE200 = ((EMA200[t] - EMA200[t-9]) / EMA200[t-9]) * 100
+```
+```
+ST:
+SLOPE200 = ((EMA200[t] - EMA200[t-9]) / EMA200[t-9])
 ```
 
 Rules:
@@ -150,6 +174,7 @@ If missing or invalid data interrupts the moving-average calculation, the slope 
 ### 27.2 Slope interpretation
 
 The following thresholds provide a descriptive interpretation of the calculated slope. They do not alter the underlying calculation.
+To compare a raw study (`ST`) value with the percentage thresholds below, multiply it by 100. For example, `0.04` corresponds to `4%`.
 
 | Slope percentage                               | Interpretation      |
 | ---------------------------------------------- | ------------------- |

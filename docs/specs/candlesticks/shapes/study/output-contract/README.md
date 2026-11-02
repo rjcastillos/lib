@@ -15,6 +15,7 @@ The naming conventions are:
 - **CSV:** all column names use `PascalCase`.
 - Field names must be translated consistently between formats. Their meanings and values must not change.
 - CSV uses the exact PascalCase names in the canonical column table. Acronyms follow those spellings (for example, `Atr`, `Rvol`, `Ema`, and `Sma`), not all-uppercase variants.
+- Percent-based measurements, including all `*_percent` fields and the slope fields, contain decimal fractions. For example, `0.04` represents `4%`; do not multiply by 100 for storage or export.
 
 The JSON structure defines the canonical field order. The CSV column order must follow that same sequence.
 
@@ -88,10 +89,10 @@ The fields must appear in the following order:
 | 32    | `ema50`                       | number or null | EMA with period 50                             |
 | 33    | `ema100`                      | number or null | EMA with period 100                            |
 | 34    | `ema200`                      | number or null | EMA with period 200                            |
-| 35    | `slope9`                      | number or null | EMA9 percentage slope over 9 observations      |
-| 36    | `slope20`                     | number or null | SMA20 percentage slope over 9 observations     |
-| 37    | `slope50`                     | number or null | EMA50 percentage slope over 9 observations     |
-| 38    | `slope200`                    | number or null | EMA200 percentage slope over 9 observations    |
+| 35    | `slope9`                      | number or null | EMA9 fractional slope over 9 observations      |
+| 36    | `slope20`                     | number or null | SMA20 fractional slope over 9 observations     |
+| 37    | `slope50`                     | number or null | EMA50 fractional slope over 9 observations     |
+| 38    | `slope200`                    | number or null | EMA200 fractional slope over 9 observations    |
 | 39    | `volume`                      | number or null | Original candle volume                         |
 
 The relative-wick fields are calculated as `upper_wick / open` and `lower_wick / open`, respectively. They are unavailable when the opening price is invalid or zero.
@@ -107,7 +108,8 @@ The JSON `predecessor` object shall contain the following fields in this order:
 | 1     | `high_relation` | string or null | `HH`, `LH` or `EH`                                |
 | 2     | `low_relation`  | string or null | `HL`, `LL` or `EL`                                |
 | 3     | `pattern_code`  | string or null | Combination of high and low relations             |
-| 4     | `pattern_name`  | string or null | Descriptive name associated with the pattern code |
+| 4     | `pattern_name`  | string or null | Descriptive geometric name associated with the pattern code |
+| 5     | `status`        | string         | `NO_PREDECESSOR`, `MISSING_PRICE`, `INVALID_PRICE`, `INVALID_OHLC`, or `OK` |
 
 Example:
 
@@ -116,13 +118,14 @@ Example:
   "high_relation": "HH",
   "low_relation": "LL",
   "pattern_code": "HH-LL",
-  "pattern_name": "outside_bar"
+  "pattern_name": "outside_bar",
+  "status": "OK"
 }
 ```
 
-When there is no predecessor, or the required predecessor comparison cannot be performed, all four fields must be `null`. Compare each candle with the immediately preceding row in chronological order. If that row is invalid or lacks the required high/low values, leave the relationship unavailable; do not skip it to compare with an older candle.
+The study specification defines the approved `pattern_name` mapping keyed by `pattern_code`. When the status is `OK`, all four relationship fields must be non-null. For `NO_PREDECESSOR`, `MISSING_PRICE`, `INVALID_PRICE`, or `INVALID_OHLC`, all four relationship fields must be `null`. The status field is always present and must never be `null`.
 
-The predecessor object must remain present in the JSON record; its fields must not be omitted.
+The predecessor object must remain present in every JSON record; none of its five fields may be omitted. Compare each candle with the immediately preceding row in chronological order. If that row is invalid or lacks the required high/low values, leave the relationship unavailable; do not skip it to compare with an older candle.
 
 ## 3. CSV output contract
 
@@ -149,10 +152,11 @@ For example:
 | `predecessor.low_relation`  | `PredecessorLowRelation`  |
 | `predecessor.pattern_code`  | `PredecessorPatternCode`  |
 | `predecessor.pattern_name`  | `PredecessorPatternName`  |
+| `predecessor.status`        | `PredecessorStatus`       |
 
 ### 3.2 Canonical CSV column order
 
-The CSV columns must follow the same sequence as the JSON fields, including the four flattened predecessor fields.
+The CSV columns must follow the same sequence as the JSON fields, including the five flattened predecessor fields.
 
 | Order | CSV column                 |
 | ----- | -------------------------- |
@@ -176,28 +180,29 @@ The CSV columns must follow the same sequence as the JSON fields, including the 
 | 18    | `PredecessorLowRelation`   |
 | 19    | `PredecessorPatternCode`   |
 | 20    | `PredecessorPatternName`   |
-| 21    | `OpenLocation`             |
-| 22    | `CloseLocation`            |
-| 23    | `Magnitude`                |
-| 24    | `RelativeOpenPercent`      |
-| 25    | `RelativeOpenRangePercent` |
-| 26    | `RelativeOpenUpperWickPercent` |
-| 27    | `RelativeOpenLowerWickPercent` |
-| 28    | `BodyAtr`                  |
-| 29    | `RangeAtr` |
-| 30    | `UpperWickAtr` |
-| 31    | `LowerWickAtr` |
-| 32    | `Rvol` |
-| 33    | `Ema9` |
-| 34    | `Sma20` |
-| 35    | `Ema50` |
-| 36    | `Ema100` |
-| 37    | `Ema200` |
-| 38    | `Slope9` |
-| 39    | `Slope20` |
-| 40    | `Slope50` |
-| 41    | `Slope200` |
-| 42    | `Volume` |
+| 21    | `PredecessorStatus`        |
+| 22    | `OpenLocation`             |
+| 23    | `CloseLocation`            |
+| 24    | `Magnitude`                |
+| 25    | `RelativeOpenPercent`      |
+| 26    | `RelativeOpenRangePercent` |
+| 27    | `RelativeOpenUpperWickPercent` |
+| 28    | `RelativeOpenLowerWickPercent` |
+| 29    | `BodyAtr`                  |
+| 30    | `RangeAtr` |
+| 31    | `UpperWickAtr` |
+| 32    | `LowerWickAtr` |
+| 33    | `Rvol` |
+| 34    | `Ema9` |
+| 35    | `Sma20` |
+| 36    | `Ema50` |
+| 37    | `Ema100` |
+| 38    | `Ema200` |
+| 39    | `Slope9` |
+| 40    | `Slope20` |
+| 41    | `Slope50` |
+| 42    | `Slope200` |
+| 43    | `Volume` |
 
 The CSV column order is mandatory and must not depend on dictionary iteration order or the order in which calculations are executed.
 
@@ -221,7 +226,7 @@ The same logical value must be represented consistently in both output formats.
 | -------------------------- | ------------------- | ------------------ |
 | Valid numeric value        | JSON number         | Numeric cell       |
 | Valid text value           | JSON string         | Text cell          |
-| Unavailable numeric result | `null`              | Empty field        |
+| Missing, non-numeric or non-finite numeric input/result | `null` | Empty field |
 | Unavailable text result    | `null`              | Empty field        |
 | Missing time in daily data | `null`              | Empty field        |
 | Empty text value           | `""`                | Empty field        |
@@ -234,6 +239,8 @@ The following rules are mandatory:
 4. Represent unavailable CSV values and empty text values as empty fields, not as the literal strings `NULL`, `NaN` or `None`. These two cases are intentionally indistinguishable in CSV.
 5. Do not replace unavailable indicator values with zero unless the relevant indicator specification explicitly requires zero.
 6. A genuine numeric zero must remain zero. It must not be confused with an unavailable value.
+7. When a raw numeric input is missing, non-numeric, NaN, or infinite, represent that field as JSON `null` and an empty CSV cell. Do not retain non-numeric text or non-finite tokens in a field defined as numeric.
+8. A finite numeric source value that violates a candle-level structural rule (for example, `high < low`) remains in the output as supplied. Mark derived candle fields unavailable and report the invalid candle. This preserves usable source values for inspection without serializing an invalid token as a number.
 
 The calculation layer may continue to use Python/pandas `NaN` internally where appropriate. Conversion to the required output representation must take place when serializing the results.
 
@@ -286,7 +293,9 @@ At minimum, validate that:
 - CSV column names follow `PascalCase`.
 - JSON fields and CSV columns follow the specified order.
 - Records are sorted in ascending chronological order before calculations and export.
-- The predecessor object contains exactly the four defined fields.
+- The predecessor object contains exactly the five defined fields and a valid status.
+- Predecessor status is one of `NO_PREDECESSOR`, `MISSING_PRICE`, `INVALID_PRICE`, `INVALID_OHLC`, or `OK`.
+- `OK` has four populated relationship fields; every other status has four `null` relationship fields.
 - CSV contains flattened predecessor fields and no nested objects.
 - JSON contains valid standard JSON values.
 - No Python `NaN`, infinity or non-standard numeric token is present in JSON.
@@ -295,3 +304,5 @@ At minimum, validate that:
 - The record order is identical in both files.
 
 For an invalid candle, retain the input record and its original input values in both outputs. Report the candle-specific error using the format defined in the study specification and continue with the next candle. Do not assign direction, shape, candle geometry, or predecessor classifications to invalid data. Its invalidity also makes it unavailable as the predecessor for the next row; do not skip it. Other indicators follow their own input-validity and warm-up rules.
+
+Volume is optional. If it is absent, serialize it as unavailable without a validation error; RVOL is unavailable whenever the current volume or a required baseline volume is absent. If Volume is supplied but is negative, non-numeric, NaN, or infinite, report the volume-specific error defined in the study specification, serialize `volume` as JSON `null` and an empty CSV cell, and make affected RVOL values unavailable. This does not invalidate otherwise valid OHLC-based candle or predecessor calculations. Count the row once as invalid for the CLI summary and exit status, even if it has multiple validation errors.
