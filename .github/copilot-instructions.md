@@ -86,5 +86,7 @@ Before completing a change:
 - DRY output: Do not duplicate code blocks or show multiple variations.
 
 ## Response Formatting
+- Provide terse answers and code only.
+- If a zoom in or more details are needed I will explicitly request them.
 - Zero prose: Provide code immediately. Unless explicitly asked, omit introductions, explanations, summaries, and closing remarks.
 
