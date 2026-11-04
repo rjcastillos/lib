@@ -108,6 +108,7 @@
         .empty-state { margin: 18px 0 0; padding: 24px 0; border-bottom: 1px solid var(--line); color: var(--muted); }
         [hidden] { display: none !important; }
         .warning { margin: 16px 0; padding: 12px 14px; border-left: 4px solid #b47516; background: var(--amber-pale); color: #573b10; }
+        #planLifecycleWarning { grid-column: 1 / -1; }
         .asset-title { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 10px 0 14px; }
         .asset-title h2 { margin: 0; color: #1a202c; font-size: 20px; font-weight: 650; }
         .asset-identity { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px 18px; min-width: 0; }
@@ -115,7 +116,7 @@
         .next-ex-date strong { color: var(--ink); font-weight: 600; }
         .summary {
             display: grid;
-            grid-template-columns: repeat(5, minmax(120px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
             gap: 0;
             border: 1px solid var(--line);
             border-radius: 8px;
@@ -146,6 +147,9 @@
         .what-if { display: grid; grid-template-columns: minmax(160px, 220px) minmax(250px, 1fr); gap: 16px; align-items: end; max-width: 640px; }
         .what-if output { display: block; min-height: 40px; padding: 9px 0; font-size: 17px; font-weight: 700; }
         .footnote { max-width: 820px; color: var(--muted); font-size: 12px; }
+        .scenario-candidates { display: grid; grid-column: 1 / -1; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+        .scenario-candidates ul { padding-left: 20px; }
+        .scenario-candidates li { display: flex; justify-content: space-between; gap: 10px; align-items: center; padding: 5px 0; }
         .trades-dialog {
             width: min(1100px, calc(100vw - 32px));
             max-width: none;
@@ -210,6 +214,8 @@
         <nav aria-label="Portfolio tools">
             <a href="index.html">DCA planner</a>
             <span aria-hidden="true"> · </span>
+            <a href="trade-planner.html" target="_blank" rel="noopener">Trade Planner</a>
+            <span aria-hidden="true"> · </span>
             <a href="../docs/specs/portfolio-update/TODO.md">Release TODO</a>
         </nav>
     </header>
@@ -244,7 +250,28 @@
         </div>
         <p id="currencyFormatHelp" class="footnote">Use a three-letter currency code such as USD or EUR. Currency is recorded as metadata; calculations do not convert between currencies.</p>
         <div id="statusMessage" class="status" role="status" aria-live="polite"></div>
+        <section id="executionSyncBanner" class="warning" aria-live="polite">
+            <strong>Execution-history CSV is not configured.</strong>
+            <span id="executionSyncStatus">Actual executions are kept in the portfolio ledger and queued locally until both CSV append and JSON export are confirmed.</span>
+            <div class="file-actions" style="margin-top:8px">
+                <button id="configureExecutionCsv" class="button secondary" type="button">Create/select execution CSV</button>
+                <button id="retryExecutionCsv" class="button" type="button">Retry pending CSV writes</button>
+                <button id="includeQueuedExecutions" class="button" type="button" hidden>Include queued executions in portfolio</button>
+            </div>
+            <p class="footnote">The persistent CSV is separate from the filtered Trade history download. JSON export downloads a copy and does not replace the file you opened.</p>
+        </section>
         <p id="emptyState" class="empty-state">Open a portfolio JSON file or add a ticker to begin.</p>
+
+        <section id="allocationSection" class="section" hidden aria-labelledby="allocationHeading">
+            <h2 id="allocationHeading">Strategy allocation</h2>
+            <p class="footnote">Open basis and gross dividend projections come from the loaded ledger. Amounts are not converted or guaranteed; payout cycles are kept separate.</p>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Currency</th><th>Strategy</th><th>Direction</th><th>Period</th><th>Open positions</th><th>Remaining basis / proceeds</th><th>Per-cycle dividend</th><th>Annual projection</th></tr></thead>
+                    <tbody id="allocationBody"></tbody>
+                </table>
+            </div>
+        </section>
 
         <section id="assetPanel" hidden>
             <div id="legacyPlannerWarning" class="warning" role="alert" hidden></div>
@@ -260,7 +287,9 @@
                 <div class="metric"><span>Open quantity</span><strong id="positionQuantity">0</strong></div>
                 <div class="metric"><span>Average basis</span><strong id="positionAverage">$0.00</strong></div>
                 <div class="metric"><span>Open basis / proceeds</span><strong id="positionInvested">$0.00</strong></div>
+                <div class="metric"><span>Realized P&amp;L</span><strong id="positionRealizedPnl">$0.00</strong></div>
                 <div class="metric"><span>Dividend amount</span><strong id="positionDividend">$0.00</strong><small id="positionDividendUnit">per payout</small></div>
+                <div class="metric"><span>Yield on cost</span><strong id="positionYoc">N/A</strong></div>
             </div>
 
             <section class="section">
@@ -273,16 +302,42 @@
                 </form>
             </section>
 
+            <section id="positionScenarioSection" class="section">
+                <div class="section-head"><h2>Open-position scenarios · estimates only</h2><p id="scenarioPlanStatus" class="footnote"></p></div>
+                <p class="footnote">Snapshot quantity and average basis are read-only ledger values. Entry commission is already included in basis; only the estimated exit fee below is applied.</p>
+                <div id="scenarioInputFields" class="form-grid">
+                    <div class="field"><label for="scenarioExitFee">Estimated exit fee</label><input id="scenarioExitFee" type="number" min="0" step="any" value="1"></div>
+                    <div class="field"><label for="scenarioStop">Stop price</label><input id="scenarioStop" type="number" min="0.00000001" step="any"></div>
+                    <div class="field"><label for="scenarioStopSource">Stop source</label><input id="scenarioStopSource" maxlength="80" placeholder="e.g. support level"></div>
+                    <div class="field"><label for="scenarioTarget">Target price</label><input id="scenarioTarget" type="number" min="0.00000001" step="any"></div>
+                    <div class="field"><label for="scenarioTargetSource">Target source</label><input id="scenarioTargetSource" maxlength="80" placeholder="e.g. resistance level"></div>
+                    <div class="field"><label for="scenarioInterval">Chart interval</label><select id="scenarioInterval"><option>1 Week</option><option>1 Day</option><option>4 Hours</option><option>1 Hour</option><option>30 min</option><option>5 min</option></select></div>
+                    <div class="field"><label for="scenarioObservedAt">Levels observed at (with offset)</label><input id="scenarioObservedAt" type="datetime-local"></div>
+                    <div class="field" id="scenarioRevisionField" hidden><label for="scenarioRevision">Plan revision</label><select id="scenarioRevision"></select></div>
+                    <div id="scenarioPlanCandidates" class="scenario-candidates" hidden>
+                        <div><h3>Plan stops</h3><ul id="scenarioStopCandidates"></ul></div>
+                        <div><h3>Plan targets</h3><ul id="scenarioTargetCandidates"></ul></div>
+                    </div>
+                </div>
+                <p id="scenarioEstimate" class="footnote" aria-live="polite">Estimates are unavailable until a long position and valid stop/target levels are selected.</p>
+            </section>
+
             <section class="section">
                 <div class="section-head"><h2>Open or add to position</h2><p>Only the current direction can be increased.</p></div>
+                <label for="strategyInput">Strategy</label>
+                <select id="strategyInput" aria-describedby="strategyHelp"><option>SniperNine</option><option>Daytrade</option><option>SwingTrade</option><option>LongtimeInvestment</option></select>
+                <p id="strategyHelp" class="footnote">Strategy is set when the position opens and remains fixed through increases and reductions until fully closed. SniperNine is an automated proprietary strategy under performance testing; this page does not run it or claim proven results.</p>
                 <form id="openTradeForm" class="form-grid">
                     <div class="field"><label for="tradeDirection">Direction</label><select id="tradeDirection"><option value="Long">Long · buy</option><option value="Short">Short · sell</option></select></div>
-                    <div class="field"><label for="strategyInput">Strategy</label><select id="strategyInput"><option>SniperNine</option><option>Daytrade</option><option>SwingTrade</option><option>LongtimeInvestment</option></select></div>
                     <div class="field"><label for="entryQuantity">Quantity</label><input id="entryQuantity" type="number" min="0.00000001" step="any" required></div>
                     <div class="field"><label for="entryPrice">Entry price</label><input id="entryPrice" type="number" min="0" step="any" required></div>
                     <div class="field"><label for="entryCommission">Entry commission</label><input id="entryCommission" type="number" min="0" step="0.01" value="0" required></div>
                     <div class="field"><label for="entryDate">Entry date</label><input id="entryDate" type="date" required></div>
                     <div class="field"><label for="entryCurrency">Trade currency</label><input id="entryCurrency" maxlength="3" pattern="[A-Za-z]{3}" required></div>
+                    <div class="field"><label for="planLinkSelect">Plan link (opening only)</label><select id="planLinkSelect"><option value="">No plan link</option></select></div>
+                    <div class="field"><label for="planRevisionSelect">Plan revision</label><select id="planRevisionSelect" disabled></select></div>
+                    <p id="planLifecycleWarning" class="warning" hidden aria-live="polite"></p>
+                    <div class="field"><label for="clearPlanLinkOpen">Plan reference</label><span><input id="clearPlanLinkOpen" type="checkbox"> Do not copy the open lifecycle's plan link</span></div>
                     <button id="openTradeButton" class="button" type="submit">Record open trade</button>
                 </form>
             </section>
@@ -295,6 +350,7 @@
                     <div class="field"><label for="closeCommission">Commission</label><input id="closeCommission" type="number" min="0" step="0.01" value="0" required></div>
                     <div class="field"><label for="closeDate">Execution date</label><input id="closeDate" type="date" required></div>
                     <div class="field"><label for="closeCurrency">Trade currency</label><input id="closeCurrency" maxlength="3" pattern="[A-Za-z]{3}" required></div>
+                    <div class="field"><label><input id="clearPlanLink" type="checkbox"> Do not copy plan link to this execution</label></div>
                     <button id="closeTradeButton" class="button" type="submit" name="closeMode" value="reduce">Reduce position</button>
                     <button id="closePositionButton" class="button secondary" type="submit" name="closeMode" value="full">Close full position</button>
                 </form>
@@ -348,6 +404,9 @@
             </div>
         </div>
     </dialog>
+    <script src="trade-planner-core.js"></script>
+    <script src="trade-planner-store.js"></script>
+    <script src="execution-history.js"></script>
     <script src="positions-core.js"></script>
     <script src="positions-app.js"></script>
 </body>

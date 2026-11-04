@@ -87,6 +87,7 @@ Before completing a change:
 
 ## Response Formatting
 - Provide terse answers and code only.
+- limit to write output in the window chat while thinking or reasoning. 
 - If a zoom in or more details are needed I will explicitly request them.
 - Do not generate text unless is strictly to fulfill the request.
 - Zero prose: Provide code immediately. Unless explicitly asked, omit introductions, explanations, summaries, and closing remarks.

@@ -30,6 +30,7 @@
             fail("Portfolio JSON must be an object keyed by ticker.");
         }
 
+        const executionIDs = new Set();
         for (const [ticker, asset] of Object.entries(portfolio)) {
             if (!asset || typeof asset !== "object" || Array.isArray(asset)) {
                 fail(`${ticker} must contain an asset object.`);
@@ -67,6 +68,14 @@
                 if (trade.Currency !== undefined) {
                     asCurrencyCode(trade.Currency, `${ticker}.Trades[${index}].Currency`);
                 }
+                for (const field of ["ExecutionID", "PlanID", "PlanRevisionID"]) {
+                    if (trade[field] !== undefined && (typeof trade[field] !== "string" || !trade[field].trim())) {
+                        fail(`${ticker}.Trades[${index}].${field} must be a non-empty string.`);
+                    }
+                }
+                if ((trade.PlanID === undefined) !== (trade.PlanRevisionID === undefined)) {
+                    fail(`${ticker}.Trades[${index}] must include both PlanID and PlanRevisionID, or neither.`);
+                }
                 for (const field of ["Qty", "PriceIn", "PriceOut", "Commission", "CommissionOut"]) {
                     if (trade[field] !== undefined && trade[field] !== "") {
                         asNonnegativeNumber(trade[field], `${ticker}.Trades[${index}].${field}`);
@@ -78,6 +87,12 @@
                     }
                 }
                 if (trade.Action) {
+                    if (trade.ExecutionID) {
+                        if (executionIDs.has(trade.ExecutionID)) {
+                            fail(`ExecutionID ${trade.ExecutionID} must be unique in the portfolio.`);
+                        }
+                        executionIDs.add(trade.ExecutionID);
+                    }
                     if (!STRATEGIES.includes(trade.Strategy)) {
                         fail(`${ticker}.Trades[${index}].Strategy must be a supported real-position strategy.`);
                     }
@@ -430,6 +445,90 @@
         return summary;
     }
 
+    function currentExecutionLifecycle(asset) {
+        let openQuantity = 0;
+        let direction = null;
+        let openingTrade = null;
+        for (const trade of asset.Trades || []) {
+            if (!trade.Action) continue;
+            const actionDirection = trade.Action === "Buy" ? "Long" : "Short";
+            const signedTradeQuantity = (trade.Action === "Buy" ? 1 : -1) * Number(trade.Qty);
+            if (openQuantity === 0) {
+                direction = actionDirection;
+                openingTrade = trade;
+                openQuantity = Math.abs(signedTradeQuantity);
+            } else if (direction === actionDirection) {
+                openQuantity += Math.abs(signedTradeQuantity);
+            } else {
+                openQuantity -= Math.abs(signedTradeQuantity);
+                if (openQuantity <= EPSILON) {
+                    openQuantity = 0;
+                    direction = null;
+                    openingTrade = null;
+                }
+            }
+        }
+        if (openQuantity === 0) {
+            const legacyOpen = (asset.Trades || []).find(trade => !trade.Action
+                && trade.On === true && trade.Strategy !== "DCA_Planner");
+            if (legacyOpen) {
+                return {
+                    strategy: legacyOpen.Strategy,
+                    planID: undefined,
+                    planRevisionID: undefined
+                };
+            }
+            return null;
+        }
+        return {
+            direction,
+            strategy: openingTrade?.Strategy,
+            planID: openingTrade?.PlanID,
+            planRevisionID: openingTrade?.PlanRevisionID,
+            openingExecutionID: openingTrade?.ExecutionID
+        };
+    }
+
+    function linkedExecutionLifecycle(asset, openingExecutionID, planID, planRevisionID) {
+        const trades = asset?.Trades || [];
+        const openingIndex = trades.findIndex(trade => trade.ExecutionID === openingExecutionID);
+        if (openingIndex < 0) return "mismatch";
+        const opening = trades[openingIndex];
+        if (opening.Action !== "Buy" || opening.PlanID !== planID
+            || opening.PlanRevisionID !== planRevisionID) {
+            return "mismatch";
+        }
+        for (let index = openingIndex; index < trades.length; index++) {
+            const lifecycleAsset = { ...asset, Trades: trades.slice(openingIndex, index + 1) };
+            if (summarize(lifecycleAsset).quantity <= EPSILON) return "closed";
+        }
+        return "linked-open";
+    }
+
+    function executionReferences(input, currentLifecycle, isOpening) {
+        const executionID = input.executionID;
+        if (executionID !== undefined && (typeof executionID !== "string" || !executionID.trim())) {
+            fail("Execution ID must be a non-empty string.");
+        }
+        const planID = input.clearPlanLink
+            ? undefined
+            : input.planID ?? (isOpening ? undefined : currentLifecycle?.planID);
+        const planRevisionID = input.clearPlanLink
+            ? undefined
+            : input.planRevisionID ?? (isOpening ? undefined : currentLifecycle?.planRevisionID);
+        if ((planID === undefined) !== (planRevisionID === undefined)) {
+            fail("Plan ID and plan revision ID must be supplied together.");
+        }
+        if (planID !== undefined && (typeof planID !== "string" || !planID.trim()
+            || typeof planRevisionID !== "string" || !planRevisionID.trim())) {
+            fail("Plan ID and plan revision ID must be non-empty strings.");
+        }
+        return {
+            ...(executionID ? { ExecutionID: executionID } : {}),
+            ...(planID ? { PlanID: planID, PlanRevisionID: planRevisionID } : {})
+        };
+    }
+
     function createAsset(ticker, details = {}) {
         if (typeof ticker !== "string" || !/^[A-Z0-9][A-Z0-9.-]{0,15}$/.test(ticker)) {
             fail("Ticker symbols must start with a letter or number and contain only letters, numbers, dots, or hyphens.");
@@ -475,6 +574,14 @@
         if (current.quantity > 0 && current.direction !== input.direction) {
             fail(`Close the open ${current.direction} position before opening a ${input.direction} position.`);
         }
+        const lifecycle = currentExecutionLifecycle(next);
+        if (current.quantity > 0 && lifecycle?.strategy && lifecycle.strategy !== input.strategy) {
+            fail(`Strategy is fixed as ${lifecycle.strategy} until this position is fully closed.`);
+        }
+        if (current.quantity > 0 && input.planID
+            && (input.planID !== lifecycle?.planID || input.planRevisionID !== lifecycle?.planRevisionID)) {
+            fail("An open position lifecycle cannot be linked to a different plan or revision.");
+        }
         next.Trades ||= [];
         next.Trades.push({
             Action: input.direction === "Long" ? "Buy" : "Sell",
@@ -483,7 +590,8 @@
             Date: dateIn,
             Price: price,
             Commission: commission,
-            ...(currency ? { Currency: currency } : {})
+            ...(currency ? { Currency: currency } : {}),
+            ...executionReferences(input, lifecycle, current.quantity === 0)
         });
         const summary = syncSummary(next);
         return { asset: next, summary };
@@ -497,6 +605,10 @@
         const currency = input.currency === undefined ? undefined : asCurrencyCode(input.currency, "Trade currency");
         const current = summarize(asset);
         if (current.quantity <= 0) fail("There is no open position to close.");
+        const lifecycle = currentExecutionLifecycle(asset);
+        if (input.strategy && lifecycle?.strategy && input.strategy !== lifecycle.strategy) {
+            fail(`Strategy is fixed as ${lifecycle.strategy} until this position is fully closed.`);
+        }
         const requestedQuantity = input.quantity === "" || input.quantity === null || input.quantity === undefined
             ? current.quantity
             : asNonnegativeNumber(input.quantity, "Close quantity");
@@ -506,12 +618,13 @@
         const next = cloneAsset(asset);
         const trade = {
             Action: current.direction === "Long" ? "Sell" : "Buy",
-            Strategy: input.strategy || "SniperNine",
+            Strategy: lifecycle?.strategy || input.strategy || "SniperNine",
             Qty: quantity,
             Date: dateOut,
             Price: price,
             Commission: commissionOut,
-            ...(currency ? { Currency: currency } : {})
+            ...(currency ? { Currency: currency } : {}),
+            ...executionReferences(input, lifecycle, false)
         };
         if (!STRATEGIES.includes(trade.Strategy)) fail("Choose a supported strategy.");
         next.Trades ||= [];
@@ -533,6 +646,8 @@
     const api = {
         STRATEGIES,
         validatePortfolio,
+        currentExecutionLifecycle,
+        linkedExecutionLifecycle,
         createAsset,
         summarize,
         syncSummary,

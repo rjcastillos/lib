@@ -76,7 +76,7 @@ The fields must appear in the following order:
 | 18    | `predecessor`                 | object         | Predecessor relationship information           |
 | 19    | `open_location`               | number or null | Opening price location within the candle range |
 | 20    | `close_location`              | number or null | Closing price location within the candle range |
-| 21    | `magnitude`                   | string or null | Movement magnitude classification              |
+| 21    | `magnitude`                   | string or null | `monster_move`, `exceptionally_large`, `large`, `normal`, or `small` based on `range_atr`; null when `range_atr` is unavailable |
 | 22    | `relative_open_percent`       | number or null | Body relative to the opening price             |
 | 23    | `relative_open_range_percent` | number or null | Candle range relative to the opening price      |
 | 24    | `relative_open_upper_wick_percent` | number or null | Upper wick divided by opening price     |

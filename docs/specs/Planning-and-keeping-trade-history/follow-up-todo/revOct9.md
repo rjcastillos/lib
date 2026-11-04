@@ -65,7 +65,7 @@ In CSV but not in JSON:
  Funding > 0 and fees ≥ 0. 
  Risk between 0 and 100 percent. 
  Stops must be below entry, and PT candidates at or below entry are flagged. 
- Fibonacci needs A < C < B for extensions and A < B for retracements. 
+ Fibonacci extensions support ascending and descending impulses when C is strictly between A and B; retracements require A < B. Resolved in the current planning specification and Decision 0015.
  Cap candidates at about 10 PTs and 10 SLs, because the target × stop matrix grows quickly.
 
 7. Plan management. Saved revisions are immutable. Unexecuted plans can be deleted or archived; executed plans cannot. Add "duplicate as new plan" for closed plans. Use an optimistic revision-count check to handle two tabs editing the same plan.
@@ -84,5 +84,4 @@ The README contradicts itself in places and repeats its rules, so it should be c
 • The same rules appear three to four times (Fibonacci, plan selection, closure). The copies will drift apart.
 • There are no requirement IDs, so design and tests cannot trace back to a requirement.
 Consolidate into numbered requirements and delete the superseded wording.
-
 

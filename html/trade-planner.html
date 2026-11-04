@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Trade Planner</title>
+    <style>
+        :root { color-scheme: light; --ink:#333; --muted:#64748b; --paper:#f4f6f9; --line:#e2e8f0; --blue:#2563eb; --navy:#0f172a; }
+        * { box-sizing:border-box; }
+        body { margin:0; padding:20px; background:var(--paper); color:var(--ink); font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+        button,input,select,textarea { font:inherit; }
+        button,input,select { min-height:40px; }
+        button { cursor:pointer; }
+        :focus-visible { outline:3px solid #93c5fd; outline-offset:2px; }
+        main { max-width:1100px; margin:auto; padding:26px 30px 32px; border-radius:12px; background:#fff; box-shadow:0 4px 15px #0000000d; }
+        header,.heading,.actions,.section-head,.inline { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+        header { margin-bottom:22px; }
+        header nav { display:flex; gap:12px; flex-wrap:wrap; }
+        a { color:var(--blue); }
+        h1,h2,h3,p { margin-top:0; }
+        h1 { margin-bottom:4px; color:#1a202c; font-size:26px; }
+        h2 { font-size:19px; margin-bottom:12px; }
+        h3 { font-size:15px; margin-bottom:8px; }
+        .muted,.footnote,label { color:var(--muted); }
+        .muted,.footnote { font-size:13px; }
+        .status { min-height:28px; padding:6px 0; color:#15803d; }
+        .status[data-kind="error"] { color:#9b3024; }
+        .warning { margin:10px 0; padding:10px 12px; border-left:4px solid #b47516; background:#fff4db; color:#573b10; }
+        .section { padding:22px 0; border-top:1px solid var(--line); }
+        .form-grid { display:grid; grid-template-columns:repeat(4,minmax(130px,1fr)); gap:12px; align-items:end; }
+        .field { display:grid; gap:5px; min-width:0; }
+        label { font-size:12px; font-weight:700; }
+        input,select,textarea { width:100%; min-width:0; padding:8px; border:1px solid #cbd5e1; border-radius:6px; background:#fff; color:var(--ink); }
+        textarea { min-height:150px; resize:vertical; }
+        .button { display:inline-flex; align-items:center; justify-content:center; min-height:40px; border:1px solid var(--blue); border-radius:6px; padding:7px 13px; background:var(--blue); color:white; font-weight:650; text-decoration:none; }
+        .button.secondary { border-color:var(--navy); background:var(--navy); }
+        .button.tertiary { border-color:#cbd5e1; background:white; color:#1e293b; }
+        .button.danger { border-color:#b42318; background:#b42318; }
+        .actions { justify-content:flex-start; flex-wrap:wrap; margin-top:14px; }
+        .table-wrap { width:100%; overflow-x:auto; }
+        table { width:100%; min-width:740px; border-collapse:collapse; text-align:left; font-size:13px; }
+        th,td { padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+        th { background:#f1f5f9; color:#475569; white-space:nowrap; }
+        td { font-variant-numeric:tabular-nums; }
+        .summary { display:grid; grid-template-columns:repeat(4,minmax(130px,1fr)); border:1px solid var(--line); border-radius:8px; background:#f8fafc; }
+        .metric { padding:12px 14px; border-right:1px solid var(--line); }
+        .metric:last-child { border:0; }
+        .metric span,.metric strong { display:block; }
+        .metric span { color:var(--muted); font-size:11px; font-weight:700; text-transform:uppercase; }
+        .metric strong { margin-top:4px; font-size:18px; font-variant-numeric:tabular-nums; }
+        dialog { width:min(620px,calc(100vw - 24px)); max-height:90vh; padding:20px; border:0; border-radius:10px; box-shadow:0 18px 60px #0f172a3d; }
+        dialog::backdrop { background:#0f172a80; }
+        .dialog-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:16px; }
+        .candidate-form { display:grid; grid-template-columns:repeat(4,minmax(110px,1fr)); gap:10px; align-items:end; }
+        .indicator-grid { display:grid; grid-template-columns:repeat(3,minmax(160px,1fr)); gap:12px; }
+        .fib-results label { display:flex; align-items:center; gap:8px; padding:6px; }
+        .fib-results input { width:auto; min-height:auto; }
+        [hidden] { display:none !important; }
+        @media(max-width:720px) {
+            body { padding:12px; }
+            main { padding:20px 16px 26px; }
+            header,.heading { align-items:flex-start; flex-direction:column; }
+            .form-grid { grid-template-columns:repeat(2,minmax(130px,1fr)); }
+            .summary { grid-template-columns:repeat(2,minmax(120px,1fr)); }
+            .metric:nth-child(2) { border-right:0; }
+            .candidate-form,.indicator-grid { grid-template-columns:1fr 1fr; }
+        }
+        @media(max-width:420px) {
+            .form-grid,.candidate-form,.indicator-grid { grid-template-columns:1fr; }
+            .actions .button { flex:1 1 100%; }
+        }
+    </style>
+</head>
+<body>
+<main>
+    <header>
+        <div>
+            <p class="muted">Local estimates · user-controlled portfolio</p>
+            <h1>Trade Planner</h1>
+            <p class="muted">Planning results are estimates, not orders or guaranteed exits.</p>
+        </div>
+        <nav aria-label="Portfolio tools">
+            <label class="button tertiary" for="portfolioFile">Open portfolio JSON</label>
+            <input id="portfolioFile" type="file" accept=".json,application/json" hidden>
+            <a href="index.html">DCA planner</a>
+            <a href="positions.html">Positions</a>
+        </nav>
+    </header>
+    <div id="statusMessage" class="status" role="status" aria-live="polite"></div>
+    <div id="capabilityNotice" class="warning" hidden></div>
+    <div id="portfolioNotice" class="warning" hidden></div>
+    <div class="section">
+        <div class="heading">
+            <div class="field">
+                <label for="savedPlanSelect">Saved plans</label>
+                <select id="savedPlanSelect"><option value="">New unsaved plan</option></select>
+            </div>
+            <div class="field" id="revisionField" hidden>
+                <label for="revisionSelect">Plan revision</label>
+                <select id="revisionSelect"></select>
+            </div>
+            <div class="field">
+                <label for="portfolioTicker">Portfolio ticker (optional)</label>
+                <select id="portfolioTicker"><option value="">Open a portfolio JSON or use Positions</option></select>
+            </div>
+        </div>
+        <p id="planState" class="footnote">Draft changes stay in this page until explicitly saved.</p>
+        <div class="actions">
+            <button id="newPlanButton" class="button tertiary" type="button">New plan</button>
+            <button id="savePlanButton" class="button" type="button">Save Plan</button>
+            <button id="saveRevisionButton" class="button" type="button" hidden>Save Revision</button>
+            <button id="archivePlanButton" class="button tertiary" type="button" hidden>Archive</button>
+            <button id="duplicatePlanButton" class="button tertiary" type="button" hidden>Duplicate as new</button>
+            <button id="deletePlanButton" class="button danger" type="button" hidden>Delete</button>
+            <button id="releasePlanLinkButton" class="button danger" type="button" hidden>Release stale plan link</button>
+            <button id="notesButton" class="button tertiary" type="button">Notes / Comments</button>
+            <button id="fibButton" class="button tertiary" type="button">Fibonacci helper</button>
+        </div>
+    </div>
+    <section class="section" aria-labelledby="planInputsHeading">
+        <h2 id="planInputsHeading">Plan inputs</h2>
+        <div class="form-grid">
+            <div class="field"><label for="tickerInput">Ticker</label><input id="tickerInput" maxlength="16" autocomplete="off"></div>
+            <div class="field"><label for="currencyInput">Plan currency</label><input id="currencyInput" maxlength="3" value="USD" aria-describedby="currencyHelp"></div>
+            <div class="field"><label for="fundingInput">Funding</label><input id="fundingInput" type="number" min="0.01" step="any" value="2500"></div>
+            <div class="field"><label for="riskInput">Risk tolerance (%)</label><input id="riskInput" type="number" min="0" max="100" step="any" value="1"></div>
+            <div class="field"><label for="ptPercentInput">PT1 target (%)</label><input id="ptPercentInput" type="number" min="0" step="any" value="2"></div>
+            <div class="field"><label for="entryInput">Entry price</label><input id="entryInput" type="number" min="0.00000001" step="any" required></div>
+            <div class="field"><label for="entryFeeInput">Entry fee</label><input id="entryFeeInput" type="number" min="0" step="any" value="0"></div>
+            <div class="field"><label for="exitFeeInput">Estimated exit fee</label><input id="exitFeeInput" type="number" min="0" step="any" value="1"></div>
+            <div class="field"><label for="quantityModeInput">Quantity mode</label><select id="quantityModeInput"><option value="fractional">Fractional</option><option value="whole">Whole shares (round down)</option></select></div>
+        </div>
+        <p id="currencyHelp" class="footnote">Plan amounts use this currency without conversion. A portfolio-linked plan must match the ticker currency.</p>
+        <div id="planSummary" class="summary" aria-label="Estimated plan summary">
+            <div class="metric"><span>Risk budget</span><strong id="riskBudgetOutput">—</strong></div>
+            <div class="metric"><span>Ideal stop SL1</span><strong id="idealStopOutput">—</strong></div>
+            <div class="metric"><span>Selected quantity</span><strong id="quantityOutput">—</strong></div>
+            <div class="metric"><span>Ideal target PT1</span><strong id="idealTargetOutput">—</strong></div>
+        </div>
+        <p class="footnote">Sizing includes the entry fee and estimated exit fee in risk limits. The plan does not place or schedule orders.</p>
+    </section>
+    <section class="section">
+        <div class="section-head">
+            <h2>Exit candidates and estimates</h2>
+            <p class="footnote">Maximum 10 PT and 10 SL candidates including PT1/SL1.</p>
+        </div>
+        <h3>Additional profit target</h3>
+        <form id="targetForm" class="candidate-form">
+            <div class="field"><label for="targetLabel">Name</label><input id="targetLabel" value="Resistance"></div>
+            <div class="field"><label for="targetPrice">Observed price</label><input id="targetPrice" type="number" min="0.00000001" step="any"></div>
+            <div class="field"><label for="targetInterval">Chart interval</label><select id="targetInterval"></select></div>
+            <div class="field"><label for="targetObservedAt">Observed at (with offset)</label><input id="targetObservedAt" type="datetime-local"></div>
+            <button class="button" type="submit">Add PT candidate</button>
+        </form>
+        <ul id="targetCandidateList" aria-label="Additional profit target candidates"></ul>
+        <h3 style="margin-top:20px">Additional stop loss</h3>
+        <form id="stopForm" class="candidate-form">
+            <div class="field"><label for="stopLabel">Name</label><input id="stopLabel" value="Support"></div>
+            <div class="field"><label for="stopPrice">Observed price</label><input id="stopPrice" type="number" min="0.00000001" step="any"></div>
+            <div class="field"><label for="stopInterval">Chart interval</label><select id="stopInterval"></select></div>
+            <div class="field"><label for="stopObservedAt">Observed at (with offset)</label><input id="stopObservedAt" type="datetime-local"></div>
+            <button class="button" type="submit">Add SL candidate</button>
+        </form>
+        <ul id="stopCandidateList" aria-label="Additional stop loss candidates"></ul>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Selected SL scenario</th><th>Source / observation</th><th>Price / distance</th><th>Allowed quantity</th><th>Stop P&amp;L</th><th>Compared targets</th></tr></thead>
+                <tbody id="scenarioBody"><tr><td colspan="6">Enter a valid plan to calculate estimates.</td></tr></tbody>
+            </table>
+        </div>
+        <div class="actions">
+            <button id="atrCandidateButton" class="button tertiary" type="button">Add ATR stop</button>
+            <button id="atrpCandidateButton" class="button tertiary" type="button">Add ATRP stop</button>
+        </div>
+        <div class="form-grid" style="margin-top:14px">
+            <div class="field"><label for="atrInput">ATR distance</label><input id="atrInput" type="number" min="0.00000001" step="any"></div>
+            <div class="field"><label for="atrpInput">ATRP distance (%)</label><input id="atrpInput" type="number" min="0.00000001" step="any"></div>
+            <div class="field"><label for="volatilityInterval">Chart interval</label><select id="volatilityInterval"></select></div>
+            <div class="field"><label for="volatilityObservedAt">Observed at (with offset)</label><input id="volatilityObservedAt" type="datetime-local"></div>
+        </div>
+    </section>
+    <section class="section">
+        <h2>Contextual chart readings</h2>
+        <p class="footnote">Manually observed context only. No indicator is fetched or calculated; readings never create orders.</p>
+        <div class="indicator-grid">
+            <div class="field"><label for="rsiInput">RSI (0–100)</label><input id="rsiInput" type="number" min="0" max="100" step="any"></div>
+            <div class="field"><label for="rsiInterval">Chart interval</label><select id="rsiInterval"></select></div>
+            <div class="field"><label for="rsiObservedAt">Observed at (with offset)</label><input id="rsiObservedAt" type="datetime-local"></div>
+            <div class="field"><label for="ema9Input">EMA 9 price</label><input id="ema9Input" type="number" min="0.00000001" step="any"></div>
+            <div class="field"><label for="ema100Input">EMA 100 price</label><input id="ema100Input" type="number" min="0.00000001" step="any"></div>
+            <div class="field"><label for="ema200Input">EMA 200 price</label><input id="ema200Input" type="number" min="0.00000001" step="any"></div>
+            <div class="field"><label for="emaInterval">EMA chart interval</label><select id="emaInterval"></select></div>
+            <div class="field"><label for="emaObservedAt">EMA observed at</label><input id="emaObservedAt" type="datetime-local"></div>
+            <div class="field"><label for="vwapInput">VWAP price</label><input id="vwapInput" type="number" min="0.00000001" step="any"></div>
+            <div class="field"><label for="vwapInterval">Chart interval</label><select id="vwapInterval"></select></div>
+            <div class="field"><label for="vwapObservedAt">Observed at (with offset)</label><input id="vwapObservedAt" type="datetime-local"></div>
+        </div>
+        <div class="form-grid" style="margin-top:14px">
+            <div class="field"><label for="openingStrategy">Opening strategy</label><select id="openingStrategy"><option>SniperNine</option><option>Daytrade</option><option>SwingTrade</option><option>LongtimeInvestment</option></select></div>
+        </div>
+        <div class="actions"><button id="recordOpeningButton" class="button" type="button" disabled>Continue in Positions to record an execution</button></div>
+        <p class="footnote">This opens Positions in a new tab and pre-fills proposed values only. Nothing is recorded until you review and explicitly confirm the actual execution in Positions.</p>
+    </section>
+    <section class="section">
+        <h2>Planner backup and recovery</h2>
+        <p id="backupStatus" class="footnote">Backup status not yet checked.</p>
+        <div class="actions">
+            <button id="backupButton" class="button secondary" type="button">Export planner backup</button>
+            <label class="button tertiary" for="restoreFile">Choose backup to restore</label>
+            <input id="restoreFile" type="file" accept=".json,application/json" hidden>
+        </div>
+        <p class="footnote">IndexedDB belongs to this browser profile and origin; it is not a backup or cross-device sync. Portfolio JSON remains the source of actual executions.</p>
+    </section>
+</main>
+<dialog id="notesDialog" aria-labelledby="notesHeading">
+    <h2 id="notesHeading">Plan notes and comments</h2>
+    <label for="notesInput">Rationale, observations, or comments</label>
+    <textarea id="notesInput"></textarea>
+    <p class="footnote">Notes remain in this unsaved draft until Save Plan or Save Revision succeeds.</p>
+    <div class="dialog-actions"><button id="cancelNotes" class="button tertiary" type="button">Cancel</button><button id="applyNotes" class="button" type="button">Apply to draft</button></div>
+</dialog>
+<dialog id="fibDialog" aria-labelledby="fibHeading">
+    <h2 id="fibHeading">Fibonacci level helper</h2>
+    <div class="field"><label for="fibKind">Level type</label><select id="fibKind"><option value="extension">Extension · PT</option><option value="retracement">Retracement · SL</option></select></div>
+    <div class="form-grid" style="margin-top:10px">
+        <div class="field"><label id="fibPointALabel" for="fibPointA">Point A · impulse start</label><input id="fibPointA" type="number" min="0.00000001" step="any"></div>
+        <div class="field"><label id="fibPointBLabel" for="fibPointB">Point B · impulse end</label><input id="fibPointB" type="number" min="0.00000001" step="any"></div>
+        <div id="fibPointCField" class="field"><label id="fibPointCLabel" for="fibPointC">Point C · retracement point</label><input id="fibPointC" type="number" min="0.00000001" step="any"></div>
+        <div class="field"><label for="fibInterval">Chart interval</label><select id="fibInterval"></select></div>
+        <div class="field"><label for="fibObservedAt">Observed at (with offset)</label><input id="fibObservedAt" type="datetime-local"></div>
+    </div>
+    <div class="actions"><button id="calculateFib" class="button" type="button">Calculate levels</button></div>
+    <p id="fibStatus" class="footnote" aria-live="polite"></p>
+    <div id="fibResults" class="fib-results"></div>
+    <div class="dialog-actions"><button id="closeFib" class="button tertiary" type="button">Close</button><button id="addFibLevels" class="button" type="button">Add selected levels to draft</button></div>
+</dialog>
+<dialog id="restoreDialog" aria-labelledby="restoreHeading">
+    <h2 id="restoreHeading">Replace planner records?</h2>
+    <p id="restorePreview"></p>
+    <p class="warning">Restore replaces saved plans and revisions. It does not merge them or change portfolio JSON, queued executions, or browser file permissions.</p>
+    <div class="dialog-actions"><button id="cancelRestore" class="button tertiary" type="button">Cancel</button><button id="backupBeforeRestore" class="button tertiary" type="button">Download current backup</button><button id="confirmRestore" class="button danger" type="button">Confirm replacement</button></div>
+</dialog>
+<script src="positions-core.js"></script>
+<script src="trade-planner-core.js"></script>
+<script src="trade-planner-store.js"></script>
+<script src="trade-planner-app.js"></script>
+</body>
+</html>

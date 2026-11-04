@@ -27,6 +27,27 @@ pip install yfinance
 # or install from requirements file if present
 pip install -r requirements.txt
 
+## Download intraday OHLC data
+
+[`getOHLC_4H.py`](./getOHLC_4H.py) downloads the selected ticker at Yahoo
+Finance's 1-hour interval. Sampling defaults to `4h`, which resamples bars in
+the `America/New_York` timezone with 4-hour bins offset to align with the
+9:30 AM market open. Select `1h` to write the downloaded bars without
+resampling. Each run writes one CSV named with the ticker, sampling interval,
+and a UTC timestamp to the current working directory. Downloads default to the
+last 30 days. Use `--start-date DD-MM-YYYY` to retrieve from a specific date,
+or `--ALL` to request the maximum history Yahoo Finance makes available for
+the selected interval. Yahoo Finance may limit how far back intraday history
+is available.
+
+```bash
+python3 python/getOHLC_4H.py NVDA
+python3 python/getOHLC_4H.py NVDA 1h
+python3 python/getOHLC_4H.py NVDA 4h
+python3 python/getOHLC_4H.py NVDA 4h --start-date 10-10-2026
+python3 python/getOHLC_4H.py NVDA 1h --ALL
+```
+
 ## Environment validation
 
 /home/rcastillo/checkoutcode/lib/python/.venv/bin/python
@@ -70,8 +91,6 @@ focused tests with:
 ```bash
 python3 -m unittest python.tests.test_candlestick_study
 ```
-
-
 
 
 

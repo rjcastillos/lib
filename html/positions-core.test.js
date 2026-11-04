@@ -105,6 +105,19 @@ test("full close defaults to the full quantity and permits a new direction", () 
     assert.equal(reopened.Positions[0].Direction, "Short");
 });
 
+test("linked plan lifecycle stays closed after the ticker is later reopened", () => {
+    const asset = {
+        Trades: [
+            { Action: "Buy", Strategy: "SniperNine", Qty: 2, Date: "2026-09-28", Price: 10, Commission: 0, ExecutionID: "open-1", PlanID: "plan-1", PlanRevisionID: "rev-1" },
+            { Action: "Sell", Strategy: "SniperNine", Qty: 2, Date: "2026-09-29", Price: 11, Commission: 0, ExecutionID: "close-1", PlanID: "plan-1", PlanRevisionID: "rev-1" },
+            { Action: "Buy", Strategy: "Daytrade", Qty: 1, Date: "2026-09-30", Price: 12, Commission: 0, ExecutionID: "open-2" }
+        ]
+    };
+    assert.equal(PositionCore.linkedExecutionLifecycle(asset, "open-1", "plan-1", "rev-1"), "closed");
+    assert.equal(PositionCore.linkedExecutionLifecycle(asset, "open-1", "plan-1", "wrong-revision"), "mismatch");
+    assert.equal(PositionCore.linkedExecutionLifecycle(asset, "missing", "plan-1", "rev-1"), "mismatch");
+});
+
 test("rejects a reduce quantity greater than the aggregate position", () => {
     const asset = openLot(longAsset, "Long", 2, 10);
     assert.throws(() => PositionCore.closePosition(asset, "EXM", {
