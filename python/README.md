@@ -92,6 +92,42 @@ focused tests with:
 python3 -m unittest python.tests.test_candlestick_study
 ```
 
+## Nine-candle strategy score
+
+[`nine_candle_score.py`](./nine_candle_score.py) scores the nine completed
+candles strictly before a market-open date and prints a Markdown score table
+with pressure, directional-balance, evidence, and bias aggregates. It reads
+the derived `candles-study.csv` output, not raw OHLCV; create that file with
+[`candlestick_study.py`](./candlestick_study.py) first when needed.
+
+```bash
+python3 python/candlestick_study.py data/nvda_ohlc_data.csv \
+  --csv-output python/candles-study.csv
+python3 python/nine_candle_score.py 2026-08-03
+python3 python/nine_candle_score.py 2026-08-03 \
+  --input python/candles-study.csv \
+  --config python/nine_candle_score_config.json
+```
+
+The positional date uses `YYYY-MM-DD`; the candle on that date is excluded.
+The JSON config contains the nine weights and the scoring ranges, structure
+scores, trend weights and epsilon, evidence threshold, evidence denominator,
+and directional-balance bands. Edit it to adjust the strategy thresholds.
+The script follows the BodyAtr scoring table rather than the conflicting
+BodyScore worked example in `docs/specs/strategy/prompts/ver5.md`. The
+close-location table assigns exactly `0.60` to score `0` to close the gap
+between the documented adjacent ranges. Missing RVOL uses multiplier `1.00`
+and is reported; missing score components prevent aggregate scoring and leave
+bias `UNDEFINED`. The evidence denominator defaults to ver5's stated `697.50`;
+that value uses an RVOL body multiplier of `1.50`, although the RVOL table
+allows a multiplier of `3.00`. Review `maximum_total_pressure` in the config
+if the prompt's evidence calculation is revised.
+
+Run its focused tests with:
+
+```bash
+python3 -m unittest python.tests.test_nine_candle_score
+```
 
 
 

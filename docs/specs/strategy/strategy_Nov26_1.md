@@ -2,7 +2,7 @@
 ## Complete Technical Specification
 
 **Document ID:** TSW-9C-001  
-**Version:** 3.0  
+**Version:** 3.1<br>
 **Status:** Proposed implementation specification  
 **Classification:** Deterministic, rule-based trading strategy  
 **Input reference:** `field-reference.md`  
@@ -227,6 +227,22 @@ RVOL may be unavailable without invalidating the entire evaluation.
 These coverage values are proposed defaults and must be configurable.
 
 If any minimum is not met, the final action is `NO_TRADE`.
+
+`NO_TRADE` means that no new strategy order is authorized; it does not mean
+that an existing position is closed or that its protective orders are removed.
+When candle data is invalid or component coverage fails, do not derive a
+market-driven exit or reversal from the incomplete analysis. Preserve the
+current position and keep its independently configured protective stops and
+account-level risk controls active. Those controls may still require a
+risk-driven close through the execution layer.
+If a required protective control is missing or cannot be monitored, the risk
+layer must request closure and report `STOP_EXECUTION_FAILURE`; `NO_TRADE`
+must not leave an unprotected position unmanaged.
+
+The evidence gate applies to new entries and reversals. When input data and
+component coverage are valid but the evidence gate fails, do not open or
+reverse. Continue to evaluate an existing position against its holding
+threshold; close it if that threshold is breached, otherwise hold it.
 
 # 5. Market Analysis Engine
 
@@ -611,7 +627,10 @@ Otherwise:
 Bias = UNDEFINED
 ```
 
-and the decision engine must return `NO_TRADE`.
+Do not open or reverse when bias is undefined. If the underlying candle data
+and component coverage are valid, an existing position must still be managed
+using its holding threshold as defined in Section 4.3. If data or coverage is
+invalid, follow the protective-control policy in Section 4.3.
 
 # 14. Entry Confirmation
 
@@ -687,6 +706,11 @@ A short position may be opened only when all conditions pass:
 6. Current position is FLAT.
 7. Risk-management gate passes.
 
+`LongEntryThreshold` is a positive directional-balance threshold, and
+`ShortEntryThreshold` is its positive-magnitude counterpart. The configured
+defaults are both `0.40`; the short comparison negates that magnitude. Do not
+configure the short threshold as a signed negative value.
+
 ## 14.3 Execution timing
 
 The strategy calculates signals after candle T-1 closes.
@@ -722,6 +746,10 @@ The proposed exit policy introduces hysteresis:
 - A short position is maintained while bearish balance remains at most -0.20.
 - Strong opposite bias can trigger a reversal, subject to confirmation.
 - Loss of the holding threshold triggers an exit.
+- A reversal requires valid data, sufficient component coverage, a passing
+  evidence gate, its entry trigger, and risk approval. If any reversal
+  condition fails, evaluate the holding threshold and close to flat when it
+  has been breached.
 
 | Current position | Strong bullish | Weak bullish | Neutral | Weak bearish | Strong bearish |
 |---|---|---|---|---|---|
@@ -784,7 +812,10 @@ Never assume that a reversal is a guaranteed atomic transaction.
 
 # 16. Long/Short Asymmetry
 
-The strategy supports independent configuration for long and short positions.
+The strategy permits independent long/short thresholds after validation.
+Version 3.1 uses symmetrical entry and holding thresholds and one shared
+minimum evidence threshold; the configuration does not define separate
+long/short evidence minima.
 
 Parameters:
 
@@ -797,20 +828,20 @@ ShortHoldThreshold
 
 LongBreakoutBuffer
 ShortBreakoutBuffer
-
-LongEvidenceMinimum
-ShortEvidenceMinimum
 ```
 
 Initial configuration:
 
 ```text
 LongEntryThreshold = +0.40
-ShortEntryThreshold = -0.40
+ShortEntryThreshold = +0.40
 
 LongHoldThreshold = +0.20
 ShortHoldThreshold = -0.20
 ```
+
+`ShortEntryThreshold` is a positive magnitude; the short-entry comparison is
+`DirectionalBalance <= -ShortEntryThreshold`.
 
 Independent parameters may be introduced after historical validation.
 
@@ -846,28 +877,56 @@ A market signal cannot override a risk veto.
 | ATRStopMultiplier | ATR-based stop distance |
 | MinimumStopDistance | Minimum permitted stop distance |
 | MaximumStopDistance | Maximum permitted stop distance |
+| ContractMultiplier | Instrument-specific value multiplier |
+| AccountCurrencyConversion | Conversion from instrument P&L currency to account currency |
+| EstimatedRoundTripCostsPerUnit | Estimated entry and exit costs per unit in account currency |
+
+`RiskPerTrade` is a fraction of `AccountEquity`. `MaxExposure`,
+`MaxDailyLoss`, and `EstimatedRoundTripCostsPerUnit` are denominated in
+account currency; stop distances are denominated in instrument price units.
+Exposure includes existing positions plus the proposed position, valued using
+the estimated entry price, contract multiplier, and account-currency
+conversion.
+`MaxDailyLoss` includes realized and unrealized P&L and costs, and requires a
+configured trading-session boundary and reset policy. `MaxOpenPositions` is a
+positive integer. Account equity, current exposure, daily loss, and open
+position count are runtime portfolio inputs, not fixed strategy constants.
+
+All required risk and instrument parameters must be finite and configured
+before an entry or reversal can be approved. `RiskPerTrade` must be greater
+than zero and no greater than one; stop multipliers, contract multipliers,
+exposure limits, equity and currency-conversion inputs must be valid and
+positive where applicable. A missing or invalid required value rejects the
+entry; it must not be defaulted to zero or bypassed.
 
 ## 17.2 Initial stop-loss
 
 A configurable ATR-based stop is proposed.
 
+Use the ATR aligned with the latest completed signal candle T-1. Calculate
+the stop distance as `ATR(T-1) × ATRStopMultiplier`; it must be finite and
+positive and fall within the configured minimum and maximum stop distances.
+Reject the entry if it does not. Do not silently clamp the stop distance or
+move the stop farther away to satisfy a limit.
+
 Long:
 
 ```text
-StopLoss =
-    EntryPrice - ATR × ATRStopMultiplier
+StopLoss = EstimatedEntryPrice - StopDistance
 ```
 
 Short:
 
 ```text
-StopLoss =
-    EntryPrice + ATR × ATRStopMultiplier
+StopLoss = EstimatedEntryPrice + StopDistance
 ```
 
 The initial ATR multiplier must be calibrated.
 
-The ATR used must be known at the time the trade is initiated. The strategy must not use future ATR observations.
+The ATR and estimated entry price must be known at the time the order is
+submitted. Never use future observations. A stop order is a risk control, not a
+guaranteed fill price; gaps and execution failures can cause losses to exceed
+the planned risk.
 
 ## 17.3 Position sizing
 
@@ -878,12 +937,23 @@ MaximumRiskAmount =
     AccountEquity × RiskPerTrade
 ```
 
+Calculate per-unit stop risk in account currency, including contract
+multiplier, currency conversion, and estimated round-trip fees and slippage:
+
+```text
+PerUnitRisk =
+    ABS(EstimatedEntryPrice - StopLoss)
+    × ContractMultiplier
+    × AccountCurrencyConversion
+    + EstimatedRoundTripCostsPerUnit
+```
+
 Then:
 
 ```text
 PositionSize =
     MaximumRiskAmount /
-    (ABS(EntryPrice - StopLoss) × ContractMultiplier)
+    PerUnitRisk
 ```
 
 Adjust the result for:
@@ -895,6 +965,12 @@ Adjust the result for:
 - Fees and expected slippage.
 
 Round position size down to the permitted trading increment.
+
+After fills, recompute exposure and planned stop risk using the actual average
+fill. Reduce or close the position if permitted limits are exceeded. If the
+venue or execution layer cannot place and monitor the configured protective
+stop, live entry is not authorized. The execution layer must define handling
+for stop gaps, rejected or partial orders, and stop replacement failures.
 
 ## 17.4 Risk vetoes
 
@@ -908,14 +984,24 @@ Reject new entries when:
 - Market liquidity is insufficient.
 - Trading is suspended.
 - Instrument is not available for the intended direction.
+- Any required risk or instrument parameter is missing, invalid, or in the
+  wrong currency or unit.
+
+When `MaxDailyLoss` is reached, cancel pending entry orders, close any open
+position, reject entries and reversals, and keep new entries disabled until
+the configured session reset boundary. Report the risk action explicitly.
 
 Output:
 
 ```text
 RiskGate = REJECT
+ReasonCode = RISK_CONFIGURATION_INVALID | RISK_LIMIT_EXCEEDED
 ```
 
-The action must then be `NO_TRADE`, or the appropriate close action if an existing position requires risk reduction.
+For a flat position, a rejected entry produces `NO_TRADE`. For an existing
+position, a rejected reversal must not prevent a required close: close the
+existing side when its holding threshold or an independent risk control
+requires it, and do not open the opposite side.
 
 ## 17.5 Additional execution protections
 
@@ -957,13 +1043,17 @@ The initial version must not modify directional scores based on volatility regim
 The decision engine must follow this order:
 
 ```text
-1. Validate input data.
+1. Evaluate independent, configured hard risk controls for existing
+   positions. If one requires a close, issue the corresponding close action;
+   candle-score gates cannot veto it.
 
-2. Verify nine completed candles.
+2. Validate input data and verify nine completed candles.
 
-3. Verify indicator availability.
+3. If structural validation fails or component coverage is below minimum,
+   prohibit new entries and reversals, preserve the current position, and
+   return NO_TRADE. Keep independent protective orders and risk controls active.
 
-4. Calculate component scores.
+4. Calculate component scores and coverage.
 
 5. Calculate weighted contributions.
 
@@ -979,9 +1069,10 @@ The decision engine must follow this order:
 
 11. Calculate EvidenceRatio.
 
-12. Determine data and evidence gates.
+12. Determine data, coverage, and evidence gates.
 
-13. Classify market bias.
+13. Classify market bias. Evidence failure blocks entries and reversals, but
+    does not skip holding-threshold exits for an existing position.
 
 14. Read current portfolio position.
 
@@ -991,7 +1082,9 @@ The decision engine must follow this order:
 
 17. Evaluate reversal conditions.
 
-18. Apply risk-management rules.
+18. Apply entry/reversal risk-management rules. A risk rejection blocks the
+    new side; if an existing position's exit condition was met, close it and
+    remain flat.
 
 19. Generate exactly one primary action.
 
@@ -1003,45 +1096,47 @@ The decision engine must follow this order:
 ```text
 function evaluateStrategy(candles, currentPosition, config):
 
+    if independentHardRiskControlRequiresClose(currentPosition):
+        return riskDrivenCloseAction()
+
     validate(candles)
 
     if validationFailed:
+        keepProtectiveControlsActive(currentPosition)
         return NO_TRADE
 
     analysis = calculateMarketAnalysis(candles, config)
 
     if analysis.coverageFailed:
+        keepProtectiveControlsActive(currentPosition)
         return NO_TRADE
 
-    if analysis.totalPressure == 0:
-        bias = NEUTRAL
+    entriesAllowed = analysis.evidenceGatePassed
+    if entriesAllowed:
+        bias = classifyBias(analysis.directionalBalance, config)
     else:
-        bias = classifyBias(
-            analysis.directionalBalance,
-            config
-        )
-
-    if not analysis.evidenceGatePassed:
-        return NO_TRADE
+        bias = UNDEFINED
 
     longTrigger = evaluateLongTrigger(candles, config)
     shortTrigger = evaluateShortTrigger(candles, config)
 
     if currentPosition == FLAT:
 
-        if bias == STRONG_BULLISH and longTrigger:
+        if entriesAllowed and bias == STRONG_BULLISH and longTrigger:
             if riskGatePasses(LONG):
                 return OPEN_LONG
+            return NO_TRADE
 
-        if bias == STRONG_BEARISH and shortTrigger:
+        if entriesAllowed and bias == STRONG_BEARISH and shortTrigger:
             if riskGatePasses(SHORT):
                 return OPEN_SHORT
+            return NO_TRADE
 
         return REMAIN_FLAT
 
     if currentPosition == LONG:
 
-        if bias == STRONG_BEARISH:
+        if entriesAllowed and bias == STRONG_BEARISH:
             if shortTrigger and riskGatePasses(SHORT):
                 return REVERSE_TO_SHORT
 
@@ -1053,7 +1148,7 @@ function evaluateStrategy(candles, currentPosition, config):
 
     if currentPosition == SHORT:
 
-        if bias == STRONG_BULLISH:
+        if entriesAllowed and bias == STRONG_BULLISH:
             if longTrigger and riskGatePasses(LONG):
                 return REVERSE_TO_LONG
 
@@ -1076,7 +1171,7 @@ Suggested initial configuration:
 {
   "strategy": {
     "name": "9-Candle Weighted Trading Decision Framework",
-    "version": "3.0",
+    "version": "3.1",
     "window_size": 9,
     "use_completed_candles_only": true
   },
@@ -1132,7 +1227,7 @@ Suggested initial configuration:
   },
   "decision": {
     "long_entry_threshold": 0.4,
-    "short_entry_threshold": -0.4,
+    "short_entry_threshold": 0.4,
     "long_hold_threshold": 0.2,
     "short_hold_threshold": -0.2,
     "minimum_evidence_ratio": 0.1,
@@ -1145,13 +1240,19 @@ Suggested initial configuration:
   "risk": {
     "risk_per_trade": null,
     "atr_stop_multiplier": null,
+    "minimum_stop_distance": null,
+    "maximum_stop_distance": null,
     "max_exposure": null,
-    "max_daily_loss": null
+    "max_daily_loss": null,
+    "max_open_positions": null
   }
 }
 ```
 
-Null risk parameters mean that live trading is not authorized until the risk configuration is supplied.
+Null risk parameters mean that live trading is not authorized until the risk
+configuration is supplied. Runtime account values and instrument metadata,
+including account equity, contract multiplier, and currency conversion, must
+also be provided to the risk engine.
 
 The configuration must be version-controlled and recorded with every evaluation.
 
@@ -1166,7 +1267,7 @@ Every evaluation must produce a structured result.
   "ticker": "EXAMPLE",
   "timeframe": "DEFINED_TIMEFRAME",
   "evaluation_time": "ISO-8601",
-  "strategy_version": "3.0",
+  "strategy_version": "3.1",
 
   "data_quality": {
     "status": "OK",
@@ -1251,6 +1352,10 @@ Examples:
 | `LONG_EXIT_THRESHOLD_BREACHED` | Long holding threshold breached |
 | `SHORT_EXIT_THRESHOLD_BREACHED` | Short holding threshold breached |
 | `RISK_LIMIT_EXCEEDED` | Risk veto |
+| `RISK_CONFIGURATION_INVALID` | Required risk or instrument configuration is missing or invalid |
+| `HARD_RISK_CONTROL_TRIGGERED` | Independent risk control requires position reduction or closure |
+| `STOP_EXECUTION_FAILURE` | Protective stop could not be placed, monitored, or executed as specified |
+| `POSITION_DATA_UNAVAILABLE` | Candle analysis is unavailable; existing protective controls remain active |
 | `REVERSAL_ENTRY_REJECTED` | Opposite entry rejected |
 | `NO_ENTRY_TRIGGER` | Bias present but trigger absent |
 | `VOLUME_UNAVAILABLE` | Volume confirmation unavailable |
@@ -1266,6 +1371,12 @@ The proposed scoring values and thresholds must be treated as hypotheses.
 Use historical candle data with sufficient warm-up periods.
 
 The backtest must reproduce the exact production logic.
+Record the strategy version, input data, configuration, signal timestamp,
+execution timestamp and fill model so results are reproducible. Compare results
+over the same dates and execution assumptions against buy-and-hold and simple
+directional baselines. Report return both gross and net of costs, as well as
+market exposure, turnover and trade count; make exposure differences explicit
+when comparing strategies.
 
 Include:
 
@@ -1290,6 +1401,12 @@ Use chronological separation:
 Do not randomly shuffle time-series observations.
 
 Do not repeatedly optimize against the final test period.
+Choose thresholds and component weights using training data only. Use
+validation data for model selection, then evaluate the frozen configuration
+once on the final out-of-sample period. Include multiple instruments,
+timeframes and market regimes before claiming generalization. The supplied
+225-row NVDA daily fixture is suitable only for code-path diagnostics; it is
+not sufficient to calibrate parameters or establish predictive performance.
 
 ## 23.3 Performance metrics
 
@@ -1327,6 +1444,14 @@ Test:
 
 A strategy that performs well only under one narrow parameter combination must be treated as overfit.
 
+Because structure, body, location and moving-average slopes can encode
+overlapping price information, also perform component-ablation tests. Compare
+the full strategy with variants that remove one component at a time, and
+retain a component only when its incremental out-of-sample value is robust to
+costs and small parameter changes. Inspect turnover and holding duration when
+adjusting exit thresholds; do not select thresholds solely to improve the
+final test period.
+
 ## 23.5 Deployment sequence
 
 Recommended deployment:
@@ -1359,6 +1484,17 @@ The implementation is considered technically complete when all the following con
 15. Every output contains a reason code.
 16. Every output has an auditable per-candle score breakdown.
 17. Identical inputs and configuration produce identical decisions.
+18. Invalid data and low evidence follow the distinct position-management
+    policies specified in Sections 4.3 and 19.
+19. Short-entry threshold configuration and comparison use one consistent
+    positive-magnitude convention.
+20. Entry and reversal approval requires valid risk configuration, stop
+    distance, sizing, and executable protective-stop handling.
+
+Technical completion does not establish a profitable strategy. Live use is
+not authorized until the frozen configuration has passed cost-aware,
+chronological out-of-sample and walk-forward validation and the required
+execution and account-risk parameters are configured.
 
 # 25. Required Unit Tests
 
@@ -1386,6 +1522,14 @@ The implementation must include at least the following scenarios.
 | UT-018 | Risk gate rejects entry | NO_TRADE |
 | UT-019 | Reversal close succeeds but new entry fails | FLAT |
 | UT-020 | Exact threshold boundaries | Correct classification according to inclusive/exclusive rules |
+| UT-021 | Positive short threshold configuration | Short entry requires `DirectionalBalance <= -ShortEntryThreshold` |
+| UT-022 | Invalid data with an open position | No market-driven order; protective controls remain active |
+| UT-023 | Coverage failure with an open position | No market-driven order; protective controls remain active |
+| UT-024 | Low evidence with an open position | No entry/reversal; holding-threshold exit still applies |
+| UT-025 | Required risk parameter missing or invalid | Entry and reversal rejected |
+| UT-026 | Stop distance outside configured bounds | Entry and reversal rejected without silently clamping |
+| UT-027 | Risk stop gaps or fails to execute | Execution layer reports failure and applies configured recovery policy |
+| UT-028 | Maximum daily loss reached with an open position | Close position, cancel pending entries, and block new entries until reset |
 
 Boundary tests must also cover:
 
@@ -1529,6 +1673,7 @@ The following distinctions are important for maintaining traceability.
 | Slope9, Slope20, Slope50 weights | Original strategy |
 | Bull/bear pressure and directional normalization | Original strategy |
 | Initial directional thresholds | Original strategy |
+| Positive-magnitude short-entry threshold configuration | Specification clarification |
 | `BodyAtr` and `RangeAtr` use previous candle ATR | Field reference |
 | RVOL uses preceding nine bars | Field reference |
 | Slope units and lookback | Field reference |
@@ -1541,6 +1686,8 @@ The following distinctions are important for maintaining traceability.
 | Position-state transition matrix | Proposed completion |
 | Reversal execution sequence | Proposed extension |
 | ATR-based stops and sizing | Proposed risk-management layer |
+| Data/evidence gate behavior for open positions | Specification clarification |
+| Account-currency risk sizing and protective-stop prerequisites | Specification clarification |
 | JSON output and reason codes | Proposed implementation contract |
 | Backtesting and acceptance criteria | Proposed implementation requirements |
 

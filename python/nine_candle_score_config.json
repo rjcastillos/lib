@@ -1,0 +1,172 @@
+{
+  "candle_weights_oldest_to_newest": [1, 2, 3, 4, 5, 6, 7, 8, 9],
+  "structure_scores": {
+    "HH-HL": 4,
+    "LH-HL": 2,
+    "LH-LL": -4,
+    "HH-LL": -2,
+    "EH-HL": 2,
+    "HH-EL": 2,
+    "LH-EL": -2,
+    "EH-LL": -2,
+    "EH-EL": 0
+  },
+  "body_atr_bands": [
+    {
+      "min": 2.0,
+      "max": null,
+      "min_inclusive": true,
+      "max_inclusive": false,
+      "score": 3.0
+    },
+    {
+      "min": 1.5,
+      "max": 2.0,
+      "min_inclusive": true,
+      "max_inclusive": false,
+      "score": 2.0
+    },
+    {
+      "min": 1.0,
+      "max": 1.5,
+      "min_inclusive": true,
+      "max_inclusive": false,
+      "score": 1.0
+    },
+    {
+      "min": 0.5,
+      "max": 1.0,
+      "min_inclusive": true,
+      "max_inclusive": false,
+      "score": 0.5
+    },
+    {
+      "min": 0.0,
+      "max": 0.5,
+      "min_inclusive": true,
+      "max_inclusive": false,
+      "score": 0.0
+    }
+  ],
+  "rvol_multiplier_bands": [
+    {
+      "min": null,
+      "max": 0.8,
+      "min_inclusive": false,
+      "max_inclusive": false,
+      "multiplier": 0.75
+    },
+    {
+      "min": 0.8,
+      "max": 1.2,
+      "min_inclusive": true,
+      "max_inclusive": true,
+      "multiplier": 1.0
+    },
+    {
+      "min": 1.2,
+      "max": 1.5,
+      "min_inclusive": false,
+      "max_inclusive": true,
+      "multiplier": 1.25
+    },
+    {
+      "min": 1.5,
+      "max": 2.0,
+      "min_inclusive": false,
+      "max_inclusive": true,
+      "multiplier": 1.5
+    },
+    {
+      "min": 2.0,
+      "max": 3.0,
+      "min_inclusive": false,
+      "max_inclusive": true,
+      "multiplier": 2.0
+    },
+    {
+      "min": 3.0,
+      "max": null,
+      "min_inclusive": false,
+      "max_inclusive": false,
+      "multiplier": 3.0
+    }
+  ],
+  "close_location_bands": [
+    {
+      "min": 0.0,
+      "max": 0.5,
+      "min_inclusive": true,
+      "max_inclusive": true,
+      "score": -1.0
+    },
+    {
+      "min": 0.5,
+      "max": 0.6,
+      "min_inclusive": false,
+      "max_inclusive": true,
+      "score": 0.0
+    },
+    {
+      "min": 0.6,
+      "max": 0.75,
+      "min_inclusive": false,
+      "max_inclusive": false,
+      "score": 0.5
+    },
+    {
+      "min": 0.75,
+      "max": 1.0,
+      "min_inclusive": true,
+      "max_inclusive": true,
+      "score": 1.0
+    }
+  ],
+  "trend_slopes": {
+    "epsilon": 0.0,
+    "weights": {
+      "Slope9": 1,
+      "Slope20": 2,
+      "Slope50": 3
+    }
+  },
+  "maximum_total_pressure": 697.5,
+  "minimum_evidence_ratio": 0.1,
+  "directional_balance_bands": [
+    {
+      "min": null,
+      "max": -0.4,
+      "min_inclusive": false,
+      "max_inclusive": true,
+      "bias": "STRONG_BEARISH"
+    },
+    {
+      "min": -0.4,
+      "max": -0.2,
+      "min_inclusive": false,
+      "max_inclusive": true,
+      "bias": "WEAK_BEARISH"
+    },
+    {
+      "min": -0.2,
+      "max": 0.2,
+      "min_inclusive": false,
+      "max_inclusive": false,
+      "bias": "NEUTRAL"
+    },
+    {
+      "min": 0.2,
+      "max": 0.4,
+      "min_inclusive": true,
+      "max_inclusive": false,
+      "bias": "WEAK_BULLISH"
+    },
+    {
+      "min": 0.4,
+      "max": null,
+      "min_inclusive": true,
+      "max_inclusive": false,
+      "bias": "STRONG_BULLISH"
+    }
+  ]
+}
