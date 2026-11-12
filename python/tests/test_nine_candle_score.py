@@ -1,4 +1,5 @@
 import csv
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -30,6 +31,12 @@ def write_study_csv(path, rows):
         "Slope9",
         "Slope20",
         "Slope50",
+        "Close",
+        "Ema9",
+        "Body",
+        "Atr",
+        "Range",
+        "RangeAtr",
     )
     with path.open("w", encoding="utf-8", newline="") as output:
         writer = csv.DictWriter(output, fieldnames=fields)
@@ -54,6 +61,12 @@ def make_row(day, **updates):
         "Slope9": "0",
         "Slope20": "0",
         "Slope50": "0",
+        "Close": "10.5",
+        "Ema9": "10.25",
+        "Body": "0.5",
+        "Atr": "1.5",
+        "Range": "2",
+        "RangeAtr": "1.33",
     }
     row.update(updates)
     return row
@@ -111,6 +124,28 @@ class NineCandleScoreTests(unittest.TestCase):
         rendered = render_markdown(report)
         self.assertIn("| BullPressure | 225.00 |", rendered)
         self.assertIn("| BearPressure | 0.00 |", rendered)
+        trace_header = (
+            "| Candle | Close | Ema9 | PredecessorPatternCode | Body | Atr | "
+            "BodyAtr | Range | RangeAtr | Rvol |"
+        )
+        self.assertIn(trace_header, rendered)
+        self.assertEqual(rendered.rsplit("\n", 1)[-1], "| T-1 | 10.5 | 10.25 | HH-HL | 0.5 | 1.5 | 0.1 | 2 | 1.33 | 1.0 |")
+
+    def test_trace_columns_are_configurable_and_table_is_last(self):
+        rows = [make_row(f"2026-01-{day:02d}") for day in range(1, 10)]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            input_path = root / "study.csv"
+            config_path = root / "config.json"
+            write_study_csv(input_path, rows)
+            config = json.loads(DEFAULT_CONFIG.read_text(encoding="utf-8"))
+            config["trace_table_columns"] = ["Rvol", "Close"]
+            config_path.write_text(json.dumps(config), encoding="utf-8")
+            report = calculate_report("2026-01-10", input_path, config_path)
+
+        rendered = render_markdown(report)
+        self.assertIn("| Candle | Rvol | Close |", rendered)
+        self.assertEqual(rendered.rsplit("\n", 1)[-1], "| T-1 | 1.0 | 10.5 |")
 
     def test_missing_rvol_uses_neutral_multiplier_and_reports_it(self):
         rows = [

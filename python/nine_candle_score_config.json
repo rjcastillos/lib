@@ -1,5 +1,16 @@
 {
   "candle_weights_oldest_to_newest": [1, 2, 3, 4, 5, 6, 7, 8, 9],
+  "trace_table_columns": [
+    "Close",
+    "Ema9",
+    "PredecessorPatternCode",
+    "Body",
+    "Atr",
+    "BodyAtr",
+    "Range",
+    "RangeAtr",
+    "Rvol"
+  ],
   "structure_scores": {
     "HH-HL": 4,
     "LH-HL": 2,

@@ -107,6 +107,15 @@ def _load_config(path: Path) -> dict[str, Any]:
     if not isinstance(config, dict):
         raise ScoreInputError("config root must be a JSON object")
 
+    trace_columns = config.get("trace_table_columns")
+    if not isinstance(trace_columns, list) or any(
+        not isinstance(column, str) or not column.strip()
+        for column in trace_columns
+    ):
+        raise ScoreInputError("trace_table_columns must be an array of non-empty column names")
+    if len(set(trace_columns)) != len(trace_columns):
+        raise ScoreInputError("trace_table_columns cannot contain duplicate names")
+
     weights = config.get("candle_weights_oldest_to_newest")
     if not isinstance(weights, list) or len(weights) != 9:
         raise ScoreInputError("config must provide exactly nine candle weights")
@@ -195,7 +204,7 @@ def _band_value(value: float, bands: list[dict[str, Any]], result_key: str) -> f
     return float(matches[0]) if matches else None
 
 
-def _load_rows(path: Path) -> list[dict[str, str]]:
+def _load_rows(path: Path, trace_columns: list[str]) -> list[dict[str, str]]:
     try:
         with path.open(encoding="utf-8", newline="") as source:
             reader = csv.DictReader(source)
@@ -210,6 +219,7 @@ def _load_rows(path: Path) -> list[dict[str, str]]:
                 "CloseLocation",
                 "Rvol",
                 *SLOPE_FIELDS,
+                *trace_columns,
             }
             missing = required.difference(reader.fieldnames or ())
             if missing:
@@ -362,7 +372,7 @@ def calculate_report(
     as_of = _parse_iso_date(as_of_date)
     config = _load_config(config_path)
     eligible = [
-        row for row in _load_rows(input_path)
+        row for row in _load_rows(input_path, config["trace_table_columns"])
         if _parse_iso_date(row["Date"]) < as_of
     ]
     eligible.sort(key=lambda row: row["Date"])
@@ -380,6 +390,10 @@ def calculate_report(
         _score_candle(row, weights[index], f"T-{9 - index}", config)
         for index, row in enumerate(selected)
     ]
+    for candle, row in zip(candles, selected):
+        candle["trace_values"] = {
+            column: row[column] for column in config["trace_table_columns"]
+        }
     scored = all(candle["weighted_contribution"] is not None for candle in candles)
     data_quality_pass = all(candle["data_quality_pass"] for candle in candles)
     component_coverage = sum(
@@ -509,6 +523,30 @@ def render_markdown(report: dict[str, Any]) -> str:
     if reasons:
         lines.extend(["", "**Data-quality notes**"])
         lines.extend(f"- {reason}" for reason in reasons)
+
+    trace_columns = report["candles"][0]["trace_values"]
+    if trace_columns:
+        trace_headers = ["Candle", *trace_columns]
+        lines.extend(
+            [
+                "",
+                "### Candle input trace",
+                "",
+                "| " + " | ".join(trace_headers) + " |",
+                "| " + " | ".join("---" for _ in trace_headers) + " |",
+            ]
+        )
+        for candle in report["candles"]:
+            values = [
+                candle["candle"],
+                *(
+                    str(candle["trace_values"][column]).replace("|", r"\|").replace("\n", " ")
+                    if str(candle["trace_values"][column]).strip()
+                    else "UNAVAILABLE"
+                    for column in trace_columns
+                ),
+            ]
+            lines.append("| " + " | ".join(values) + " |")
     return "\n".join(lines)
 
 

@@ -102,7 +102,6 @@ the derived `candles-study.csv` output, not raw OHLCV; create that file with
 
 ```bash
 python3 python/candlestick_study.py data/nvda_ohlc_data.csv \
-  --csv-output python/candles-study.csv
 python3 python/nine_candle_score.py 2026-08-03
 python3 python/nine_candle_score.py 2026-08-03 \
   --input python/candles-study.csv \
@@ -112,7 +111,11 @@ python3 python/nine_candle_score.py 2026-08-03 \
 The positional date uses `YYYY-MM-DD`; the candle on that date is excluded.
 The JSON config contains the nine weights and the scoring ranges, structure
 scores, trend weights and epsilon, evidence threshold, evidence denominator,
-and directional-balance bands. Edit it to adjust the strategy thresholds.
+directional-balance bands, and trace-table source columns. The trace table
+appears last in the Markdown output and defaults to `Close`, `Ema9`,
+`PredecessorPatternCode`, `Body`, `Atr`, `BodyAtr`, `Range`, `RangeAtr`, and
+`Rvol`, in that order. Edit the JSON array to change the columns. Edit the
+other values to adjust the strategy thresholds.
 The script follows the BodyAtr scoring table rather than the conflicting
 BodyScore worked example in `docs/specs/strategy/prompts/ver5.md`. The
 close-location table assigns exactly `0.60` to score `0` to close the gap
