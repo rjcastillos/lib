@@ -132,6 +132,46 @@ Run its focused tests with:
 python3 -m unittest python.tests.test_nine_candle_score
 ```
 
+## CSV value lookup
+
+[`csv_lookup.py`](./csv_lookup.py) searches the CSV files directly inside a
+directory (the current directory by default) for rows matching a ticker and
+date or ISO timestamp, then prints selected columns as a Markdown table.
+Duplicate values are collapsed into one row with their source filenames;
+different values remain separate rows. Column names are case-insensitive, and
+`magnitud` is accepted as an alias for `Magnitude`. Price-denominated fields
+such as OHLC, ATR, range, body, wicks, and moving averages display two decimal
+places; other numeric values display four.
+Volume displays as a comma-separated whole number.
+
+```bash
+python3 python/csv_lookup.py NVDA 2026-07-29 Magnitude Slope9
+python3 python/csv_lookup.py NVDA 2026-07-29T10:30:00-04:00 Magnitude Slope9 \
+  --directory data
+python3 python/csv_lookup.py NVDA 2026-10-06 T-9 Rvol Volume
+python3 python/csv_lookup.py NVDA 2026-10-06 Rvol Volume --range T-9
+python3 csv_lookup.py NVDA 2026-07-29 Magnitude Slope9 --directory ../data
+python3 csv_lookup.py NVDA 2026-07-24 Close Ema9 PredecessorPatternCode Magnitude Slope9
+```
+
+A date-only query returns every matching intraday row for that day; a
+timestamp query matches the exact timestamp. Flat CSVs with a `Ticker` column
+and yfinance's three-row multi-header CSV export are supported. When there is
+no ticker column, the ticker must be identified by the filename or yfinance
+header.
+
+An optional `T-n` argument (or `--range T-n`) includes the anchor row as
+`T-0` and up to 99 prior rows, labeled `T-1` through `T-n`, in newest-first
+order. A date anchor selects the latest available row on that date as `T-0`;
+an ISO timestamp anchor selects that exact timestamp. If files disagree on
+values for the same row, each distinct value set is shown under the same
+T-index rather than consuming extra positions.
+
+Run its focused tests with:
+
+```bash
+python3 -m unittest python.tests.test_csv_lookup
+```
 
 
 

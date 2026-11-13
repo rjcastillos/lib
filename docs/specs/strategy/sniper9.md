@@ -26,49 +26,68 @@
 
 ## Available data points per candle
 
-- `ticker`
-- `date`
-- `time`
-- `open`
-- `high`
-- `low`
-- `close`
-- `direction`
-- `shape`
-- `range`
-- `body`
-- `upper_wick`
-- `lower_wick`
-- `body_percent`
-- `upper_wick_percent`
-- `lower_wick_percent`
-- `predecessor_high_relation`
-- `predecessor_low_relation`
-- `predecessor_pattern_code`
-- `predecessor_pattern_name`
-- `predecessor_status`
-- `open_location`
-- `close_location`
-- `magnitude`
-- `relative_open_percent`
-- `relative_open_range_percent`
-- `relative_open_upper_wick_percent`
-- `relative_open_lower_wick_percent`
-- `body_atr`
-- `range_atr`
-- `upper_wick_atr`
-- `lower_wick_atr`
-- `rvol`
-- `ema9`
-- `sma20`
-- `ema50`
-- `ema100`
-- `ema200`
-- `slope9`
-- `slope20`
-- `slope50`
-- `slope200`
-- `volume`
+- `Ticker`
+- `Date`
+- `Time`
+- `Open`
+- `High`
+- `Low`
+- `Close`
+- `Direction`
+- `Shape`
+- `Atr`
+- `Range`
+- `Body`
+- `UpperWick`
+- `LowerWick`
+- `BodyPercent`
+- `UpperWickPercent`
+- `LowerWickPercent`
+- `PredecessorHighRelation`
+- `PredecessorLowRelation`
+- `PredecessorPatternCode`
+- `PredecessorPatternName`
+- `PredecessorStatus`
+- `OpenLocation`
+- `CloseLocation`
+- `Magnitude`
+- `RelativeOpenPercent`
+- `RelativeOpenRangePercent`
+- `RelativeOpenUpperWickPercent`
+- `RelativeOpenLowerWickPercent`
+- `BodyAtr`
+- `RangeAtr`
+- `UpperWickAtr`
+- `LowerWickAtr`
+- `Rvol`
+- `Ema9`
+- `Sma20`
+- `Ema50`
+- `Ema100`
+- `Ema200`
+- `Slope9`
+- `Slope20`
+- `Slope50`
+- `Slope200`
+- `Volume`
 
 
+### Slope interpretation
 
+The following thresholds provide a descriptive interpretation of the calculated slope. They do not alter the underlying calculation.
+To compare a raw study (`ST`) value with the percentage thresholds below, multiply it by 100. For example, `0.04` corresponds to `4%`.
+
+| Slope percentage                               | Interpretation      |
+| ---------------------------------------------- | ------------------- |
+| Greater than +4%                               | `strong_bull_trend` |
+| Greater than +2% and up to +4%                 | `bull_trend`        |
+| Greater than or equal to -2% and up to +2%     | `sideways`          |
+| Greater than or equal to -4% and less than -2% | `bear_trend`        |
+| Less than -4%                                  | `strong_bear_trend` |
+
+Boundary values are assigned to only one category:
+
+- Exactly `+4%` is `bull_trend`.
+- Exactly `+2%` is `bull_trend`.
+- Exactly `-2%` is `sideways`.
+- Exactly `-4%` is `bear_trend`.
