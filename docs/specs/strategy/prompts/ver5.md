@@ -244,55 +244,6 @@ WeightedContribution =
 
 ##################
 
-## Bullish pressure
-
-```text
-BullPressure =
-    SUM(MAX(WeightedContribution, 0))
-```
-
-## Bearish pressure
-
-```text
-BearPressure =
-    SUM(ABS(MIN(WeightedContribution, 0)))
-```
-
-## Total pressure
-
-```text
-TotalPressure =
-    BullPressure + BearPressure
-```
-
-## Net score
-
-```text
-NetScore =
-    BullPressure - BearPressure
-```
-
-## Directional balance
-
-```text
-DirectionalBalance =
-    NetScore / TotalPressure
-```
-
-If `TotalPressure = 0`:
-
-```text
-DirectionalBalance = 0
-```
-
-Directional balance is constrained to:
-
-```text
--1.00 <= DirectionalBalance <= +1.00
-```
-
-###############4
-
 
 ## Bullish pressure
 

@@ -4,6 +4,7 @@
         Bias WEAK_BULLISH
         T-1 and T-2 HH 
         T-1 Close > Ema9
+        T-1 Rvol > 1.1
         Long at open > 10% up 
     - 2026-07-09
      - NVDA
