@@ -72,6 +72,8 @@ nine bars, as defined by the study.
 
 ```bash
 python3 python/candlestick_study.py candles.csv
+python3 ./candlestick_study.py ../data/nvda_ohlc_data.csv 
+
 ```
 
 The output flags are optional. `--json-output` defaults to
