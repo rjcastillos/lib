@@ -48,9 +48,10 @@ class CsvLookupTests(unittest.TestCase):
             "NVDA", ["Close", "BodyAtr", "Rvol"], matches
         )
         self.assertIn(
-            "| NVDA | 2026-07-29 | 189.80 | 0.7598 | 1.1909 | candles-study.csv |",
-            output,
+            "| Ticker | Date | Close | BodyAtr | Rvol |", output.splitlines()[0]
         )
+        self.assertNotIn("File", output.splitlines()[0])
+        self.assertIn("| NVDA | 2026-07-29 | 189.80 | 0.7598 | 1.1909 |", output)
 
     def test_collapses_duplicate_values_and_reports_files_for_differences(self):
         rows = [
@@ -99,6 +100,9 @@ class CsvLookupTests(unittest.TestCase):
         self.assertEqual(matches[1]["values"], ("normal", "-0.2000"))
         self.assertEqual(matches[1]["files"], ["duplicate.csv", "first.csv"])
         output = render_markdown("NVDA", ["Magnitude", "Slope9"], matches)
+        self.assertIn(
+            "| Ticker | Date | Magnitude | Slope9 | File |", output.splitlines()[0]
+        )
         self.assertIn(
             "| NVDA | 2026-07-29 | normal | -0.2000 | duplicate.csv, first.csv |",
             output,
@@ -202,7 +206,8 @@ class CsvLookupTests(unittest.TestCase):
             list(reversed(days)),
         )
         output = render_markdown("NVDA", fields, matches)
-        self.assertIn("| Range | Ticker | Date | Rvol | Volume | File |", output)
+        self.assertIn("| Range | Ticker | Date | Rvol | Volume |", output.splitlines()[0])
+        self.assertNotIn("File", output.splitlines()[0])
         self.assertTrue(output.splitlines()[2].startswith("| T-0 | NVDA | 2026-10-06 |"))
 
     def test_conflicting_files_share_the_same_t_index(self):

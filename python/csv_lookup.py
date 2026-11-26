@@ -407,7 +407,12 @@ def render_markdown(
     ticker: str, fields: list[str], matches: list[dict[str, object]]
 ) -> str:
     range_enabled = bool(matches and "range" in matches[0])
-    headers = (["Range"] if range_enabled else []) + ["Ticker", "Date", *fields, "File"]
+    files_enabled = any(len(match["files"]) > 1 for match in matches)
+    headers = (
+        (["Range"] if range_enabled else [])
+        + ["Ticker", "Date", *fields]
+        + (["File"] if files_enabled else [])
+    )
     lines = [
         "| " + " | ".join(headers) + " |",
         "| " + " | ".join("---" for _ in headers) + " |",
@@ -415,7 +420,7 @@ def render_markdown(
     if not matches:
         lines.append(
             "| "
-            + " | ".join(["No matching rows", *("" for _ in fields), ""])
+            + " | ".join(["No matching rows", *("" for _ in range(len(headers) - 1))])
             + " |"
         )
     else:
@@ -430,7 +435,7 @@ def render_markdown(
                     _format_field_value(field, value)
                     for field, value in zip(fields, values)
                 ),
-                ", ".join(files),
+                *([", ".join(files)] if files_enabled else []),
             ]
             lines.append("| " + " | ".join(_escape_markdown(cell) for cell in cells) + " |")
     return "\n".join(lines)

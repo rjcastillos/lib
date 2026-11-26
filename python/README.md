@@ -101,7 +101,10 @@ the derived `candles-study.csv` output, not raw OHLCV; create that file with
 [`candlestick_study.py`](./candlestick_study.py) first when needed.
 
 ```bash
-python3 python/candlestick_study.py data/nvda_ohlc_data.csv \
+python3 python/candlestick_study.py data/nvda_ohlc_data.csv
+```
+
+```bash
 python3 python/nine_candle_score.py 2026-08-03
 python3 python/nine_candle_score.py 2026-08-03 \
   --input python/candles-study.csv \
@@ -137,8 +140,9 @@ python3 -m unittest python.tests.test_nine_candle_score
 [`csv_lookup.py`](./csv_lookup.py) searches the CSV files directly inside a
 directory (the current directory by default) for rows matching a ticker and
 date or ISO timestamp, then prints selected columns as a Markdown table.
-Duplicate values are collapsed into one row with their source filenames;
-different values remain separate rows. Column names are case-insensitive, and
+Duplicate values are collapsed into one row; a `File` column lists source
+filenames only when a matching value occurs in multiple files. Different values
+remain separate rows. Column names are case-insensitive, and
 `magnitud` is accepted as an alias for `Magnitude`. Price-denominated fields
 such as OHLC, ATR, range, body, wicks, and moving averages display two decimal
 places; other numeric values display four.
